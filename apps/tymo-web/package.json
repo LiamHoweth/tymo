@@ -1,0 +1,10 @@
+{
+  "name": "@tymo/tymo-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tymo's marketing website (static; publish this folder).",
+  "scripts": {
+    "dev": "node scripts/serve.mjs 3003",
+    "start": "node scripts/serve.mjs"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@tymo/company-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Company services: the facility staff app (approvals, calendar, blocks, settings).",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@tymo/shared": "*",
+    "@tymo/ui": "*",
+    "@tymo/company": "*",
+    "@tymo/db": "*",
+    "@tymo/platform": "*",
+    "drizzle-orm": "^0.45.4",
+    "luxon": "^3.7.2",
+    "zod": "^4.6.7",
+    "server-only": "^0.0.1"
+  }
+}
