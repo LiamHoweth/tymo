@@ -7,9 +7,8 @@ is charged and the facility gets paid.
 
 This repository is v1: one booking, end to end, at one facility.
 
-A Railway deployment is set up but currently offline. See
-[docs/DEPLOY.md](docs/DEPLOY.md) for the Railway setup, how to bring it
-back, and how to switch on Stripe test mode.
+Nothing is deployed right now. See [docs/DEPLOY.md](docs/DEPLOY.md) for
+how to deploy on Railway and how to switch on Stripe test mode.
 
 ## Run it locally
 

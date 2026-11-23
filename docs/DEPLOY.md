@@ -1,14 +1,21 @@
 # Deploying Tymo
 
-The demo is set up on Railway: a `tymo-app` service (this repo) and a
-`Postgres` database in the Railway project `tymo`, with the domain
-`tymo-app-production.up.railway.app`.
+Tymo was demoed on Railway (a `tymo-app` service plus a `Postgres`
+database). **That project has been deleted**; nothing is deployed now.
 
-**Status: offline.** The app deployment was removed with
-`railway down --service tymo-app`; the project, database (with the demo
-data) and variables are kept. Bring it back with
-`railway up --service tymo-app`. To stop all Railway billing, delete the
-project in the Railway dashboard (this deletes the database).
+To deploy again from this folder:
+
+```bash
+railway init --name tymo
+railway add --database postgres
+railway add --service tymo-app \
+  --variables 'DATABASE_URL=${{Postgres.DATABASE_URL}}' \
+  --variables "CRON_SECRET=<random string>" \
+  --variables "TYMO_INTERNAL_CRON=1" --variables "PAYMENTS_MODE=fake"
+# demo only: --variables "TYMO_DEMO=1" --variables "TYMO_SEED_DEMO=1"
+railway up --service tymo-app
+railway domain --service tymo-app   # then set APP_URL to that URL
+```
 
 ## How it runs
 
