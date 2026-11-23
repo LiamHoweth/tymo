@@ -7,6 +7,11 @@ is charged and the facility gets paid.
 
 This repository is v1: one booking, end to end, at one facility.
 
+**Live demo:** https://tymo-app-production.up.railway.app (made-up
+facility, fake payments; staff side has one-tap demo sign-in). See
+[docs/DEPLOY.md](docs/DEPLOY.md) for the Railway setup and how to switch on
+Stripe test mode.
+
 ## Run it locally
 
 Requires Node 24+. No database server or Stripe account needed for local
