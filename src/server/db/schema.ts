@@ -341,6 +341,8 @@ export const blocks = pgTable("blocks", {
     .references(() => tenants.id),
   kind: blockKind("kind").notNull(),
   label: text("label").notNull(), // staff-only, never shown to customers
+  /** Closures only: customer-safe reason shown on closed days ("Thanksgiving"). */
+  publicReason: text("public_reason"),
   resourceId: uuid("resource_id").references(() => resources.id),
   startsAt: ts("starts_at"),
   endsAt: ts("ends_at"),
