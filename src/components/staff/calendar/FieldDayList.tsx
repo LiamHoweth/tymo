@@ -50,11 +50,12 @@ export function FieldDayList({ day, row, removeAction }: { day: DayModel; row: R
                   </p>
                   <Link
                     href={blockHref(day.date, entry.slot)}
-                    className={buttonClass({ variant: "ghost", size: "sm" }, "min-h-11 shrink-0 px-3.5")}
-                    aria-label={`Add block on ${entry.slot.code}, ${entry.slot.timeLabel}`}
+                    className={buttonClass({ variant: "ghost", size: "sm" }, "min-h-11 shrink-0 gap-1.5 px-3.5")}
+                    aria-label={`Add block here: ${entry.slot.code}, ${entry.slot.timeLabel}`}
                   >
                     <PlusIcon className="h-4 w-4" />
-                    Add block here
+                    <span className="sm:hidden">Block</span>
+                    <span className="hidden sm:inline">Add block here</span>
                   </Link>
                 </li>
               ),

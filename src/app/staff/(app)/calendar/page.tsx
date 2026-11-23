@@ -6,7 +6,7 @@ import { getCalendarDay, getCalendarWeek } from "@/server/booking/staff";
 import { ButtonLink } from "@/components/ui";
 import { PageHeader } from "@/components/staff/Page";
 import { ChevronLeft, ListIcon, PlusIcon } from "@/components/staff/icons";
-import { DateNavigator } from "@/components/staff/calendar/DateNavigator";
+import { DateNavigator, ViewToggle } from "@/components/staff/calendar/DateNavigator";
 import { DayGrid, Legend } from "@/components/staff/calendar/DayGrid";
 import { FieldDayList } from "@/components/staff/calendar/FieldDayList";
 import { WeekView } from "@/components/staff/calendar/WeekView";
@@ -21,10 +21,26 @@ function calendarHref(q: { date?: string; view?: "day" | "week"; field?: string 
   if (q.date) p.set("date", q.date);
   if (q.view === "week") p.set("view", "week");
   if (q.field) p.set("field", q.field);
-  const s = p.toString();
+  const s = p.toString().replace("%7Bdate%7D", "{date}");
   return s ? `/staff/calendar?${s}` : "/staff/calendar";
 }
 
+function BlockButtons({ addHref }: { addHref: string }) {
+  return (
+    <>
+      <ButtonLink href="/staff/blocks" variant="ghost" size="sm" className="min-h-11">
+        <ListIcon className="h-4 w-4" />
+        Blocks
+      </ButtonLink>
+      <ButtonLink href={addHref} variant="ink" size="sm" className="min-h-11">
+        <PlusIcon className="h-4 w-4" />
+        Add block
+      </ButtonLink>
+    </>
+  );
+}
+
+/** Day view (all fields, or one field as a list) and week view. State lives in ?date=&view=&field=. */
 export default async function CalendarPage(props: PageProps<"/staff/calendar">) {
   const session = await requireStaff();
   const sp = await props.searchParams;
@@ -35,29 +51,6 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
   const field = param(sp.field) ?? null;
   const at = DateTime.fromISO(date, { zone });
 
-  const header = (
-    <PageHeader
-      title={[{ text: "Calendar" }]}
-      actions={
-        <>
-          <ButtonLink href="/staff/blocks" variant="ghost" size="sm" className="min-h-11">
-            <ListIcon className="h-4 w-4" />
-            Blocks
-          </ButtonLink>
-          <ButtonLink
-            href={`/staff/blocks/new?${new URLSearchParams(field && view === "day" ? { date, field } : { date }).toString()}`}
-            variant="ink"
-            size="sm"
-            className="min-h-11"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add block
-          </ButtonLink>
-        </>
-      }
-    />
-  );
-
   if (view === "week") {
     const start = at.startOf("week");
     const end = start.plus({ days: 6 });
@@ -66,12 +59,16 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
     const label = start.hasSame(end, "month")
       ? `${start.toFormat("LLL d")} to ${end.toFormat("d")}`
       : `${start.toFormat("LLL d")} to ${end.toFormat("LLL d")}`;
-    const isCurrent = today >= weekStart && today <= end.toISODate()!;
     const tz = days[0]?.timeZoneLabel;
+    const addHref = `/staff/blocks/new?date=${date}`;
 
     return (
       <div className="mx-auto max-w-7xl">
-        {header}
+        <PageHeader
+          title={[{ text: "Calendar" }]}
+          className="mb-4 lg:mb-6"
+          actions={<ViewToggle view="week" dayHref={calendarHref({ date })} weekHref={calendarHref({ date, view: "week", field })} />}
+        />
         <DateNavigator
           label={label}
           date={date}
@@ -79,10 +76,9 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
           prevHref={calendarHref({ date: start.minus({ weeks: 1 }).toISODate()!, view: "week", field })}
           nextHref={calendarHref({ date: start.plus({ weeks: 1 }).toISODate()!, view: "week", field })}
           todayHref={calendarHref({ date: today, view: "week", field })}
-          isCurrent={isCurrent}
-          dayHref={calendarHref({ date })}
-          weekHref={calendarHref({ date, view: "week", field })}
-          pickHref={calendarHref({ date: "{date}", view: "week", field }).replace("%7Bdate%7D", "{date}")}
+          isCurrent={today >= weekStart && today <= end.toISODate()!}
+          pickHref={calendarHref({ date: "{date}", view: "week", field })}
+          aside={<BlockButtons addHref={addHref} />}
         />
         <div className="mt-4">
           <WeekView days={days} fieldId={field} weekHref={calendarHref({ date, view: "week" })} removeAction={removeBlockAction} />
@@ -91,24 +87,36 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
           <Legend />
           {tz ? <p className="text-[12.5px] text-muted">Times in {tz}. Tap a day to see it as a list.</p> : null}
         </div>
+        <div className="mt-5 flex gap-2 sm:hidden">
+          <BlockButtons addHref={addHref} />
+        </div>
       </div>
     );
   }
 
   const day = buildDay(await getCalendarDay(session, date), zone);
   const row = field ? day.rows.find((r) => r.resourceId === field) : undefined;
+  const keep = row ? field : null;
+  const addHref = `/staff/blocks/new?${new URLSearchParams(row ? { date, field: row.resourceId } : { date }).toString()}`;
+
+  const header = (
+    <PageHeader
+      title={[{ text: "Calendar" }]}
+      className="mb-4 lg:mb-6"
+      actions={<ViewToggle view="day" dayHref={calendarHref({ date, field: keep })} weekHref={calendarHref({ date, view: "week", field: keep })} />}
+    />
+  );
   const nav = (
     <DateNavigator
       label={at.toFormat("ccc, LLL d")}
       date={date}
       view="day"
-      prevHref={calendarHref({ date: at.minus({ days: 1 }).toISODate()!, field: row ? field : null })}
-      nextHref={calendarHref({ date: at.plus({ days: 1 }).toISODate()!, field: row ? field : null })}
-      todayHref={calendarHref({ date: today, field: row ? field : null })}
+      prevHref={calendarHref({ date: at.minus({ days: 1 }).toISODate()!, field: keep })}
+      nextHref={calendarHref({ date: at.plus({ days: 1 }).toISODate()!, field: keep })}
+      todayHref={calendarHref({ date: today, field: keep })}
       isCurrent={date === today}
-      dayHref={calendarHref({ date })}
-      weekHref={calendarHref({ date, view: "week", field: row ? field : null })}
-      pickHref={calendarHref({ date: "{date}", field: row ? field : null }).replace("%7Bdate%7D", "{date}")}
+      pickHref={calendarHref({ date: "{date}", field: keep })}
+      aside={<BlockButtons addHref={addHref} />}
     />
   );
 
@@ -127,6 +135,9 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
         <div className="mt-1">
           <FieldDayList day={day} row={row} removeAction={removeBlockAction} />
         </div>
+        <div className="mt-5 flex gap-2 sm:hidden">
+          <BlockButtons addHref={addHref} />
+        </div>
       </div>
     );
   }
@@ -144,6 +155,9 @@ export default async function CalendarPage(props: PageProps<"/staff/calendar">) 
           Times in {day.timeZoneLabel}.<span className="lg:hidden"> Tap a field to see its day as a list.</span>
           <span className="hidden lg:inline"> Tap open time to add a block.</span>
         </p>
+      </div>
+      <div className="mt-5 flex gap-2 sm:hidden">
+        <BlockButtons addHref={addHref} />
       </div>
     </div>
   );

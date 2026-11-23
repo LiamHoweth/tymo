@@ -6,12 +6,13 @@ import { cn } from "@/lib/cn";
 import { buttonClass } from "@/components/ui";
 import { RemoveBlockSheet, type RemoveBlockAction, type RemoveTarget } from "../blocks/RemoveBlockSheet";
 import { ChevronRight, CloseIcon, PlusIcon } from "../icons";
+import { clockLabel, toHHMM } from "../format";
 import type { DayModel, OpenSlot, PlacedItem, RowModel } from "./model";
 import { FieldTimeline, HourAxis } from "./Timeline";
 import { HATCH } from "./styles";
 
-export function blockHref(date: string, slot: OpenSlot) {
-  const q = new URLSearchParams({ field: slot.resourceId, date, start: slot.startHHMM, end: slot.endHHMM });
+export function blockHref(date: string, slot: OpenSlot, start = slot.startHHMM, end = slot.endHHMM) {
+  const q = new URLSearchParams({ field: slot.resourceId, date, start, end });
   return `/staff/blocks/new?${q.toString()}`;
 }
 
@@ -39,7 +40,8 @@ export function removeTargetFor(item: PlacedItem, date: string): RemoveTarget | 
  * taps open time to add a block there.
  */
 export function DayGrid({ day, removeAction }: { day: DayModel; removeAction: RemoveBlockAction }) {
-  const [open, setOpen] = useState<{ rowId: string; slot: OpenSlot } | null>(null);
+  // The open time tapped, plus a one-hour block starting where it was tapped.
+  const [open, setOpen] = useState<{ rowId: string; slot: OpenSlot; from: number; to: number } | null>(null);
   const [removing, setRemoving] = useState<RemoveTarget | null>(null);
 
   function findOpen(row: RowModel, minute: number | null, laneId: string | null) {
@@ -50,7 +52,9 @@ export function DayGrid({ day, removeAction }: { day: DayModel; removeAction: Re
       (laneId ? slots.find((s) => s.resourceId === laneId && fits(s)) : undefined) ??
       slots.find((s) => s.full && fits(s)) ??
       (laneId ? undefined : slots.find((s) => fits(s)));
-    setOpen(pick ? { rowId: row.resourceId, slot: pick } : null);
+    if (!pick) return setOpen(null);
+    const from = minute === null ? pick.startMin : Math.max(pick.startMin, Math.floor(minute / 30) * 30);
+    setOpen({ rowId: row.resourceId, slot: pick, from, to: Math.min(pick.endMin, from + 60) });
   }
 
   return (
@@ -102,10 +106,15 @@ export function DayGrid({ day, removeAction }: { day: DayModel; removeAction: Re
                   {open && open.rowId === row.resourceId ? (
                     <div className="rise-in hidden items-center gap-3 border-t border-dashed border-line bg-paper/70 px-5 py-2.5 lg:flex">
                       <p className="flex-1 text-[14px]">
-                        <span className="font-semibold text-ink">Open {open.slot.timeLabel}</span>
-                        <span className="text-muted"> on {open.slot.code}</span>
+                        <span className="font-semibold text-ink">
+                          {open.slot.code} at {clockLabel(open.from)}
+                        </span>
+                        <span className="text-muted"> · open {open.slot.timeLabel}</span>
                       </p>
-                      <Link href={blockHref(day.date, open.slot)} className={buttonClass({ variant: "ink", size: "sm" }, "min-h-10")}>
+                      <Link
+                        href={blockHref(day.date, open.slot, toHHMM(open.from), toHHMM(open.to))}
+                        className={buttonClass({ variant: "ink", size: "sm" }, "min-h-11")}
+                      >
                         <PlusIcon className="h-4 w-4" />
                         Add block here
                       </Link>
@@ -113,7 +122,7 @@ export function DayGrid({ day, removeAction }: { day: DayModel; removeAction: Re
                         type="button"
                         onClick={() => setOpen(null)}
                         aria-label="Close"
-                        className="grid h-10 w-10 place-items-center rounded-full text-muted hover:bg-white hover:text-ink"
+                        className="grid h-11 w-11 place-items-center rounded-full text-muted hover:bg-white hover:text-ink"
                       >
                         <CloseIcon className="h-4 w-4" />
                       </button>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import type { BookingStatus } from "@/lib/types";
 import { formatCents, formatPhone } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import { requireStaff } from "@/server/auth";
 import { getBookingDetail } from "@/server/booking/staff";
 import { StatusTag, buttonClass } from "@/components/ui";
@@ -34,6 +35,7 @@ export default async function BookingDetailPage(props: PageProps<"/staff/booking
   const dateShort = DateTime.fromISO(detail.startsAt, { zone }).toFormat("ccc LLL d");
   const tel = detail.customer.phone.replace(/[^\d+]/g, "");
   const isOwner = detail.tymoFeeCents !== null;
+  const requested = detail.canApprove || detail.canDecline;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -49,20 +51,26 @@ export default async function BookingDetailPage(props: PageProps<"/staff/booking
         sub={<span className="font-semibold text-ink">{detail.whenLabel}</span>}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
-        <div className="flex flex-col gap-4 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1">
-          <BookingActionPanel detail={detail} dateShort={dateShort} declineAction={declineRequestAction} cancelAction={cancelBookingAction} />
-          <Card className="p-4 sm:p-5">
+      {/* Phones get one column in task order (decide first when requested);
+          desktop puts actions and notes in a sticky right column. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
+        <div className="contents lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:flex lg:flex-col lg:gap-4">
+          <BookingActionPanel
+            className={cn(requested ? "order-1" : "order-5", "lg:order-none")}
+            detail={detail}
+            dateShort={dateShort}
+            declineAction={declineRequestAction}
+            cancelAction={cancelBookingAction}
+          />
+          <Card className="order-6 p-4 sm:p-5 lg:order-none">
             <NotesForm bookingId={detail.bookingId} initial={detail.staffNotes ?? ""} saveAction={saveNotesAction} />
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 lg:col-start-1 lg:row-start-1">
-          <Card className="p-4 sm:p-5">
-            <SectionTitle>Customer</SectionTitle>
-            <p className="text-[16px] font-semibold text-ink">{detail.customer.name}</p>
-            {detail.team ? <p className="text-[14.5px] text-muted">{detail.team}</p> : null}
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="contents lg:col-start-1 lg:row-start-1 lg:flex lg:flex-col lg:gap-4">
+          <Card className="order-2 p-4 sm:p-5 lg:order-none">
+            <SectionTitle aside={detail.team ?? undefined}>Customer</SectionTitle>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <a href={`tel:${tel}`} className={buttonClass({ variant: "ghost", size: "sm" }, "min-h-11 justify-start px-4 sm:justify-center")}>
                 <PhoneIcon className="h-4 w-4" />
                 <span className="sr-only">Call </span>
@@ -83,7 +91,7 @@ export default async function BookingDetailPage(props: PageProps<"/staff/booking
             </div>
           </Card>
 
-          <Card className="px-4 py-2 sm:px-5">
+          <Card className="order-3 px-4 py-2 sm:px-5 lg:order-none">
             <dl className="divide-y divide-line">
               <DetailRow label="Field">{detail.resourceLabel}</DetailRow>
               <DetailRow label="Time">{detail.whenLabel}</DetailRow>
@@ -98,7 +106,7 @@ export default async function BookingDetailPage(props: PageProps<"/staff/booking
             </dl>
           </Card>
 
-          <Card className="px-4 py-2 sm:px-5">
+          <Card className="order-4 px-4 py-2 sm:px-5 lg:order-none">
             <dl className="divide-y divide-line">
               <DetailRow label="Price">
                 <span className="font-semibold tabular-nums">{formatCents(detail.priceCents)}</span>
@@ -130,7 +138,7 @@ export default async function BookingDetailPage(props: PageProps<"/staff/booking
             </dl>
           </Card>
 
-          <Card className="p-4 sm:p-5">
+          <Card className="order-7 p-4 sm:p-5 lg:order-none">
             <SectionTitle>History</SectionTitle>
             {detail.history.length === 0 ? (
               <p className="text-[14.5px] text-muted">Nothing yet.</p>

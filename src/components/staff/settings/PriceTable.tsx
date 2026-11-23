@@ -5,6 +5,7 @@ import type { SettingsView } from "@/lib/types";
 import { formatDuration, formatRate } from "@/lib/format";
 import { Button } from "@/components/ui";
 import { useStaff } from "../StaffProvider";
+import { resourceName } from "../format";
 
 type Resource = SettingsView["resources"][number];
 type Result = { ok: boolean; message: string };
@@ -83,7 +84,7 @@ function PriceRow({ resource, canEdit, updateAction }: { resource: Resource; can
     });
   }
 
-  const name = resource.name.startsWith(resource.code) ? resource.name : `${resource.code} · ${resource.name}`;
+  const name = resourceName(resource.code, resource.name);
 
   return (
     <li className="px-4 py-3 sm:px-5">

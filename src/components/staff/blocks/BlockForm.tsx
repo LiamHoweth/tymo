@@ -10,7 +10,7 @@ import { Button, CheckboxField, Pill, StatusTag, TextField } from "@/components/
 import { SelectField } from "@/components/ui/SelectField";
 import { useStaff } from "../StaffProvider";
 import { ChevronRight } from "../icons";
-import { WEEKDAYS, WEEKDAYS_SHORT, listJoin, plural, shortDate } from "../format";
+import { WEEKDAYS, WEEKDAYS_SHORT, listJoin, plural, resourceName, shortDate } from "../format";
 
 type Kind = BlockInput["kind"];
 
@@ -44,7 +44,7 @@ function isoWeekday(ymd: string): number {
 }
 
 function resourceText(r: BlockFormResource) {
-  return r.name.startsWith(r.code) ? r.name : `${r.code} · ${r.name}`;
+  return resourceName(r.code, r.name);
 }
 
 /**
@@ -133,7 +133,9 @@ export function BlockForm({
     const timer = window.setTimeout(async () => {
       setPreviewState("loading");
       try {
-        const result = await previewAction(JSON.parse(previewKey) as BlockInput);
+        // The key blanks the label; the engine only needs a placeholder to preview.
+        const payload = { ...(JSON.parse(previewKey) as BlockInput), label: "Block", publicReason: undefined };
+        const result = await previewAction(payload);
         if (id !== requestId.current) return;
         setPreview(result);
         setPreviewState(result ? "idle" : "error");
@@ -406,7 +408,6 @@ function PreviewPanel({
       ) : (
         <div className={cn("mt-3 transition-opacity", state === "loading" && "opacity-60")}>
           <p className="text-[18px] font-semibold leading-snug">{preview.summary}</p>
-          {preview.overlapNote ? <p className="mt-1.5 text-[14px] text-white/70">{preview.overlapNote}</p> : null}
 
           {conflicts.length > 0 ? (
             <div className="mt-5 rounded-2xl bg-white p-4 text-text">

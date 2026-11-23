@@ -44,7 +44,7 @@ function Segment({
   onBlock: (item: PlacedItem) => void;
 }) {
   const cls = cn(
-    "absolute inset-y-0 flex items-center overflow-hidden rounded-[5px] text-left text-[11px] font-semibold leading-none",
+    "absolute inset-y-0 z-[2] flex items-center overflow-hidden rounded-[5px] text-left text-[11px] font-semibold leading-none",
     KIND_CLASS[item.kind],
     compact ? "" : "px-1.5",
   );
@@ -107,14 +107,16 @@ export function FieldTimeline({
   }
 
   const hours: number[] = [];
-  for (let h = Math.ceil(startMin / 60); h * 60 < endMin; h++) if (h * 60 > startMin) hours.push(h * 60);
+  // Week cells are narrow: a line every 3 hours keeps them readable.
+  const every = size === "week" ? 3 : 1;
+  for (let h = Math.ceil(startMin / 60); h * 60 < endMin; h++) if (h * 60 > startMin && h % every === 0) hours.push(h * 60);
 
   return (
     <div className="relative">
       {/* hour lines */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
+      <div aria-hidden className="pointer-events-none absolute inset-0 z-[1]">
         {hours.map((m) => (
-          <span key={m} className="absolute inset-y-0 w-px bg-line/70" style={{ left: `${pct(m)}%` }} />
+          <span key={m} className="absolute inset-y-0 w-px bg-[#dfe4ec]" style={{ left: `${pct(m)}%` }} />
         ))}
       </div>
 
@@ -144,7 +146,7 @@ export function FieldTimeline({
             <span
               key={item.id}
               aria-hidden
-              className={cn("absolute bottom-0 h-1.5 rounded-[3px]", KIND_CLASS[item.kind])}
+              className={cn("absolute bottom-0 z-[2] h-1.5 rounded-[3px]", KIND_CLASS[item.kind])}
               style={{ left: `${pct(item.startMin)}%`, width: `max(${pct(item.endMin) - pct(item.startMin)}%, 3px)`, ...kindStyle(item.kind) }}
             />
           ),
@@ -164,7 +166,7 @@ export function FieldTimeline({
                   className="absolute inset-0 cursor-cell rounded-[4px]"
                 />
               ) : null}
-              <span aria-hidden className="pointer-events-none absolute left-1 top-1/2 hidden -translate-y-1/2 text-[10px] font-bold text-muted/70 lg:block">
+              <span aria-hidden className="pointer-events-none absolute left-1 top-1/2 z-[1] hidden -translate-y-1/2 text-[10px] font-bold text-muted/70 lg:block">
                 {lane.code}
               </span>
               {visible
@@ -185,7 +187,7 @@ export function FieldTimeline({
         : null}
 
       {nowMin !== null && nowMin > startMin && nowMin < endMin ? (
-        <span aria-hidden className="pointer-events-none absolute -inset-y-1 w-0.5 rounded-full bg-accent" style={{ left: `${pct(nowMin)}%` }} />
+        <span aria-hidden className="pointer-events-none absolute -inset-y-1 z-[3] w-0.5 rounded-full bg-accent" style={{ left: `${pct(nowMin)}%` }} />
       ) : null}
     </div>
   );

@@ -42,7 +42,7 @@ export function WeekView({
     <>
       {/* Phones: one field, a row per day */}
       <div className="lg:hidden">
-        <nav aria-label="Field" className="-mx-4 mb-3 overflow-x-auto px-4 pb-1">
+        <nav aria-label="Field" className="-mx-4 mb-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
           <ul className="flex w-max gap-2">
             {rows.map((r) => {
               const active = r.resourceId === selected.resourceId;

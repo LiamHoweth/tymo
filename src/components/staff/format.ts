@@ -1,5 +1,15 @@
 /** Small display helpers for the staff app (pure; safe on server and client). */
 
+/**
+ * Resource name for staff lists: "N1 · Full field", "N1A · Half A",
+ * "C1 · Court 1", "Indoor Field". Drops a parent prefix the code already says.
+ */
+export function resourceName(code: string, name: string): string {
+  if (!name || name === code) return code;
+  if (name.startsWith(code)) return name;
+  return `${code} · ${name.replace(/^.*·\s*/, "")}`;
+}
+
 /** "Jordan Reyes" -> "Jordan" */
 export function firstName(fullName: string): string {
   const first = fullName.trim().split(/\s+/)[0];

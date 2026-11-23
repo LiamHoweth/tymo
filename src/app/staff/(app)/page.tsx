@@ -7,7 +7,8 @@ import { Notice, PageHeader } from "@/components/staff/Page";
 import { confirmFieldsAction, declineRequestAction, setBookingsEnabledAction } from "./actions";
 import { param } from "./_lib/facility";
 
-export const metadata: Metadata = { title: "Approvals" };
+// Same segment as the (app) layout, so its title template does not apply here.
+export const metadata: Metadata = { title: { absolute: "Approvals · Staff · Tymo" } };
 
 export default async function ApprovalsPage(props: PageProps<"/staff">) {
   const session = await requireStaff();

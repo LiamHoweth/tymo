@@ -19,11 +19,13 @@ export const metadata: Metadata = { title: "Settings" };
 type Hours = SettingsView["hours"];
 
 /** "Mon to Fri: 7:00 AM to 9:00 PM", consecutive days with the same hours merged. */
-function hoursLines(hours: Hours): { days: string; time: string }[] {
+function hoursLines(hours: Hours, missing: "closed" | "skip" = "closed"): { days: string; time: string }[] {
   const byDay = new Map<number, string>();
   for (const h of hours) byDay.set(h.weekday, `${hhmmLabel(h.opensAt)} to ${hhmmLabel(h.closesAt)}`);
   const lines: { from: number; to: number; time: string }[] = [];
   for (let d = 1; d <= 7; d++) {
+    // Fields inherit venue hours on days they don't set.
+    if (!byDay.has(d) && missing === "skip") continue;
     const time = byDay.get(d) ?? "Closed";
     const last = lines[lines.length - 1];
     if (last && last.time === time && last.to === d - 1) last.to = d;
@@ -133,7 +135,7 @@ export default async function SettingsPage() {
 
         <Card className="overflow-hidden">
           <div className="p-4 pb-1 sm:p-5 sm:pb-1">
-            <SectionTitle id="prices" aside={canEdit ? "Tap Edit to change a price" : "Owner edits prices"}>
+            <SectionTitle id="prices" aside={canEdit ? undefined : "Owner edits prices"}>
               Fields and prices
             </SectionTitle>
           </div>
@@ -160,14 +162,16 @@ export default async function SettingsPage() {
           {[...fieldHours.entries()].map(([id, list]) => (
             <div key={id} className="mt-4 rounded-xl bg-paper px-3.5 py-2.5">
               <p className="text-[13px] font-bold text-ink">{codeOf(id)} has its own hours</p>
-              {hoursLines(list).map((l) => (
+              {hoursLines(list, "skip").map((l) => (
                 <p key={l.days} className="text-[13.5px] text-muted">
                   {l.days}: {l.time}
                 </p>
               ))}
             </div>
           ))}
-          <p className="mt-3 text-[13px] text-muted">To change hours, ask Tymo. Times are in {facility.timeZoneLabel}.</p>
+          <p className="mt-3 text-[13px] text-muted">
+            {fieldHours.size ? "Other days follow the venue hours. " : ""}To change hours, ask Tymo. Times are in {facility.timeZoneLabel}.
+          </p>
         </Card>
 
         <Card className="p-4 sm:p-5">

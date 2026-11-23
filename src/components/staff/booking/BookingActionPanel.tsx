@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CancelBookingInput, StaffActionResult, StaffBookingDetail } from "@/lib/types";
 import { formatCents } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { useStaff } from "../StaffProvider";
 import { DeclineSheet, type DeclineTarget } from "../DeclineSheet";
@@ -14,11 +15,13 @@ import { firstName } from "../format";
  * Cancel once approved. Approve uses the same 5-second undo as the queue.
  */
 export function BookingActionPanel({
+  className,
   detail,
   dateShort,
   declineAction,
   cancelAction,
 }: {
+  className?: string;
   detail: Pick<
     StaffBookingDetail,
     | "bookingId"
@@ -48,7 +51,7 @@ export function BookingActionPanel({
   if (!detail.canApprove && !detail.canDecline && !canCancel) return null;
 
   return (
-    <section aria-label="Actions" className="ink-card rounded-card p-5 sm:p-6">
+    <section aria-label="Actions" className={cn("ink-card rounded-card p-5 sm:p-6", className)}>
       {detail.canApprove || detail.canDecline ? (
         <>
           <p className="kicker text-white/60">Waiting for you</p>
