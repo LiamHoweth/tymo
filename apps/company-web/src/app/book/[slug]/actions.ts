@@ -11,6 +11,7 @@ import {
 import { compactRange, clock } from "@/components/booking/time";
 import { phoneDigits, validateDetails, type DetailsValues } from "@/components/booking/validate";
 import { formatCents } from "@tymo/shared/format";
+import { requireBookingAccess } from "@/app/_lib/public-preview";
 import {
   checkoutFromHold,
   clearCheckout,
@@ -47,6 +48,7 @@ const paths = {
 
 /** Date and time -> Continue: soft-hold the slot, then go to Your details. */
 export async function continueToCheckout(slug: string, prev: ContinueState, data: FormData): Promise<ContinueState> {
+  requireBookingAccess();
   const facility = await facilityOrHome(slug);
   const resourceId = str(data, "resourceId");
   const startsAt = str(data, "startsAt");
@@ -78,6 +80,7 @@ export async function continueToCheckout(slug: string, prev: ContinueState, data
 
 /** Your details -> Continue. Typed details are kept even if the hold ran out. */
 export async function saveDetails(slug: string, token: string, prev: DetailsState, data: FormData): Promise<DetailsState> {
+  requireBookingAccess();
   const attempt = prev.attempt + 1;
   const values: DetailsValues = {
     name: str(data, "name").trim(),
@@ -124,6 +127,7 @@ export async function saveDetails(slug: string, token: string, prev: DetailsStat
  * "Check again" after a dropped connection never sends twice.
  */
 export async function sendRequest(slug: string, token: string, input: { fakeCardNumber?: string }): Promise<SendResult> {
+  requireBookingAccess();
   const facility = await facilityOrHome(slug);
   const checkout = await readCheckout(token);
   const range = checkout
@@ -145,6 +149,7 @@ export async function sendRequest(slug: string, token: string, input: { fakeCard
 
 /** Leave checkout (change time or field): release the hold, then go back. */
 export async function leaveCheckout(slug: string, token: string, to: "times" | "fields"): Promise<void> {
+  requireBookingAccess();
   const checkout = await readCheckout(token);
   try {
     await engine.abandonCheckout(slug, token);
@@ -158,6 +163,7 @@ export async function leaveCheckout(slug: string, token: string, to: "times" | "
 
 /** Private booking page -> Cancel. */
 export async function cancelBooking(slug: string, publicToken: string): Promise<CancelResult> {
+  requireBookingAccess();
   const facility = await facilityOrHome(slug);
   const booking = await engine.getBookingByToken(slug, publicToken);
   const result = await engine.cancelByToken(slug, publicToken);

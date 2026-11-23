@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
+import { requireBookingAccess } from "@/app/_lib/public-preview";
 import type { BookingPublicView } from "@tymo/shared/types";
 import { ButtonLink, Display, Spark, StatusTag, type DisplayLine } from "@tymo/ui";
 import { CancelSection } from "@/components/booking/CancelSection";
@@ -99,6 +100,7 @@ function statusStory(b: BookingPublicView): { title: DisplayLine[]; lines: strin
 
 /** The customer's private booking page: status in words, details, refunds, cancel. */
 export default async function BookingPage(props: PageProps<"/book/[slug]/b/[publicToken]">) {
+  requireBookingAccess();
   const { slug, publicToken } = await props.params;
   const search = await props.searchParams;
   const booking = await getBookingByToken(slug, publicToken);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ButtonLink, Display, Marquee, Notice, Spark } from "@tymo/ui";
+import { publicPreview } from "@/app/_lib/public-preview";
 import { groupAnchor } from "@/components/booking/anchors";
 import { callTheDesk, capitalize, deskPhone } from "@/components/booking/copy";
 import { FacilityFooter } from "@/components/booking/FacilityFooter";
@@ -13,6 +14,12 @@ const STEPS = [
   "Pick a field and a time.",
   "Add your details and a card. Nothing is charged yet.",
   "The front desk confirms, then your card is charged.",
+];
+
+const PREVIEW_STEPS = [
+  "Compare sample fields and their hourly rates.",
+  "Choose a date and rental length.",
+  "See which start times are available.",
 ];
 
 /** Booking page landing: whose page this is, what can be booked, and what it costs. */
@@ -49,13 +56,15 @@ export default async function FacilityLanding(props: PageProps<"/book/[slug]">) 
 
             <div className="rise-in mt-14 max-w-4xl sm:mt-20 lg:mt-28">
               <Spark className="mb-6 h-7 w-7" />
-              <Display size="2xl" lines={["Book a", [{ text: "field", outline: true }]]} />
+              <Display size="2xl" lines={[publicPreview ? "Explore" : "Book a", [{ text: publicPreview ? "the fields" : "field", outline: true }]]} />
               <p className="mt-6 max-w-md text-[17px] leading-relaxed text-white/85 sm:text-lg">
-                Pick a field and a time. The front desk confirms, then your card is charged.
+                {publicPreview
+                  ? "Booking preview for a fictional facility. Browse sample rates and times. Checkout is disabled."
+                  : "Pick a field and a time. The front desk confirms, then your card is charged."}
               </p>
               <ButtonLink href={fieldsHref} size="lg" className="mt-8">
-                Book a field
-                <ArrowRight className="h-5 w-5" />
+                {publicPreview ? "See fields and times" : "Book a field"}
+                {publicPreview ? null : <ArrowRight className="h-5 w-5" />}
               </ButtonLink>
             </div>
           </div>
@@ -65,7 +74,7 @@ export default async function FacilityLanding(props: PageProps<"/book/[slug]">) 
           <Marquee
             tone="brand"
             words={[...groups.map((g) => g.label), "Prices up front", "No account needed"]}
-            label={`Book ${groups.map((g) => g.label.toLowerCase()).join(", ")} online.`}
+            label={`${publicPreview ? "Explore" : "Book"} ${groups.map((g) => g.label.toLowerCase()).join(", ")} online.`}
           />
         ) : null}
 
@@ -79,7 +88,7 @@ export default async function FacilityLanding(props: PageProps<"/book/[slug]">) 
               Fields <span className="text-outline">and prices</span>
             </h2>
             <ol className="mt-6 space-y-4">
-              {STEPS.map((step, i) => (
+              {(publicPreview ? PREVIEW_STEPS : STEPS).map((step, i) => (
                 <li key={step} className="flex gap-4">
                   <span className="display w-7 shrink-0 text-[1.35rem] leading-none text-white/50">{i + 1}</span>
                   <span className="text-[15px] leading-snug text-white/85">{step}</span>
@@ -111,7 +120,9 @@ export default async function FacilityLanding(props: PageProps<"/book/[slug]">) 
                 ))}
               </ul>
             ) : (
-              <Notice title="No fields are listed yet.">{capitalize(callTheDesk(facility))} to book.</Notice>
+              <Notice title="No fields are listed yet.">
+                {publicPreview ? null : `${capitalize(callTheDesk(facility))} to book.`}
+              </Notice>
             )}
           </div>
         </section>

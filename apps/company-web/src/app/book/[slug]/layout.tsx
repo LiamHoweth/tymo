@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BrandScope } from "@tymo/ui";
+import { publicPreview } from "@/app/_lib/public-preview";
 import { FacilityProvider } from "@/components/booking/FacilityContext";
 import { getFacility } from "./_lib/engine";
 
@@ -11,8 +12,14 @@ export async function generateMetadata(props: LayoutProps<"/book/[slug]">): Prom
     if (!facility) return {};
     return {
       // The facility's page, not Tymo's: no "· Tymo" suffix from the root template.
-      title: { absolute: `Book a field · ${facility.name}`, template: `%s · ${facility.name}` },
-      description: `See open times and prices at ${facility.name} and request a field online.`,
+      title: {
+        absolute: `${publicPreview ? "Booking preview" : "Book a field"} · ${facility.name}`,
+        template: `%s · ${facility.name}`,
+      },
+      description: publicPreview
+        ? `Explore sample rates and availability at ${facility.name}.`
+        : `See open times and prices at ${facility.name} and request a field online.`,
+      robots: publicPreview ? { index: false, follow: false } : undefined,
     };
   } catch {
     return {};

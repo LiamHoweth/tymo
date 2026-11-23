@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { requireBookingAccess } from "@/app/_lib/public-preview";
 import { CheckoutProvider } from "@/components/booking/CheckoutProvider";
 import { readCheckout } from "../../../_lib/checkout-store";
 import { getFacility } from "../../../_lib/engine";
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
  * Stripe Elements when the facility takes real cards.
  */
 export default async function CheckoutLayout(props: LayoutProps<"/book/[slug]/c/[checkoutToken]">) {
+  requireBookingAccess();
   const { slug, checkoutToken } = await props.params;
   const [facility, checkout] = await Promise.all([getFacility(slug), readCheckout(checkoutToken)]);
   if (!facility) notFound();

@@ -83,7 +83,10 @@ export async function openPglite(dataDir?: string): Promise<DbHandle> {
 export async function openPostgres(connectionString: string): Promise<DbHandle> {
   const pg = (await import("pg")).default;
   const { drizzle } = await import("drizzle-orm/node-postgres");
-  const pool = new pg.Pool({ connectionString, options: "-c timezone=UTC" });
+  const pool = new pg.Pool({ connectionString, options: "-c timezone=UTC", connectionTimeoutMillis: 5_000 });
+  // An idle client can lose its connection between requests. The pool
+  // discards that client and opens a fresh connection when needed.
+  pool.on("error", () => console.warn("[database] Idle PostgreSQL connection closed unexpectedly."));
   const db = drizzle({ client: pool, schema }) as unknown as Db;
   return {
     db,

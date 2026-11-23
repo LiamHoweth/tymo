@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Notice } from "@tymo/ui";
+import { publicPreview } from "@/app/_lib/public-preview";
 import { groupAnchor } from "@/components/booking/anchors";
 import { callTheDesk, capitalize } from "@/components/booking/copy";
 import { FacilityFooter } from "@/components/booking/FacilityFooter";
@@ -21,10 +22,11 @@ export default async function ChooseField(props: PageProps<"/book/[slug]/fields"
       <StepHeader
         facility={facility}
         step={1}
+        preview={publicPreview}
         title={[[{ text: "Choose a" }, { text: "field", outline: true }]]}
         back={<BackLink href={`/book/${slug}`}>{facility.name}</BackLink>}
       >
-        Prices are per hour. You pick the time next.
+        {publicPreview ? "Sample rates are per hour. Choose a field to browse availability." : "Prices are per hour. You pick the time next."}
       </StepHeader>
 
       <StepFrame>
@@ -48,7 +50,7 @@ export default async function ChooseField(props: PageProps<"/book/[slug]/fields"
           </div>
         ) : (
           <Notice title="No fields are open for online booking right now.">
-            {capitalize(callTheDesk(facility))} to book.
+            {publicPreview ? null : `${capitalize(callTheDesk(facility))} to book.`}
           </Notice>
         )}
       </StepFrame>

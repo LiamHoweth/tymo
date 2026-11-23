@@ -40,12 +40,14 @@ export function BackButton({ action, children }: { action: () => Promise<void>; 
 export function StepHeader({
   facility,
   step,
+  preview,
   title,
   back,
   children,
 }: {
   facility: Pick<FacilityPublic, "slug" | "name" | "brand">;
   step: number;
+  preview?: boolean;
   title: DisplayLine[];
   back?: ReactNode;
   children?: ReactNode;
@@ -59,14 +61,16 @@ export function StepHeader({
             <span className="truncate text-[14px] font-semibold">{facility.name}</span>
           </Link>
           <p className="kicker shrink-0 text-white/75">
-            Step {step} of {STEP_COUNT}
+            {preview ? "Booking preview" : `Step ${step} of ${STEP_COUNT}`}
           </p>
         </div>
-        <div aria-hidden className="mt-2 grid grid-cols-5 gap-1.5">
-          {Array.from({ length: STEP_COUNT }, (_, i) => (
-            <span key={i} className={cn("h-1 rounded-full", i < step ? "bg-accent" : "bg-white/20")} />
-          ))}
-        </div>
+        {preview ? null : (
+          <div aria-hidden className="mt-2 grid grid-cols-5 gap-1.5">
+            {Array.from({ length: STEP_COUNT }, (_, i) => (
+              <span key={i} className={cn("h-1 rounded-full", i < step ? "bg-accent" : "bg-white/20")} />
+            ))}
+          </div>
+        )}
         <div className="mt-4 min-h-11 lg:mt-7">{back}</div>
         <FocusHeading className="mt-1">
           <Display as="span" size="lg" lines={title} className="block" />

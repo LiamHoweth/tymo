@@ -10,8 +10,7 @@
     "typecheck": "tsc --noEmit",
     "dev-db": "tsx scripts/dev-db.ts",
     "seed": "tsx scripts/seed.ts",
-    "reset": "tsx scripts/reset.ts",
-    "prepare": "tsx scripts/prepare.ts"
+    "reset": "tsx scripts/reset.ts"
   },
   "dependencies": {
     "@tymo/db": "*",

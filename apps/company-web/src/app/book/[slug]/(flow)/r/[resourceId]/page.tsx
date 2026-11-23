@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { DateTime } from "luxon";
 import type { FacilityPublic, ResourceOption } from "@tymo/shared/types";
 import { PillLink, buttonClass } from "@tymo/ui";
+import { publicPreview } from "@/app/_lib/public-preview";
 import { durationOptions, groupAnchor } from "@/components/booking/anchors";
 import { deskPhone, tooFarCopy, tooSoonCopy } from "@/components/booking/copy";
 import { DateStrip } from "@/components/booking/DateStrip";
@@ -15,7 +16,7 @@ import { SlotPicker, SlotsSkeleton } from "@/components/booking/SlotPicker";
 import { BackLink, StepFrame, StepHeader, StepSection } from "@/components/booking/StepChrome";
 import { TimeSelectionProvider } from "@/components/booking/TimeSelection";
 import { TimeSummary } from "@/components/booking/TimeSummary";
-import { addDays, dateShort, dateWeekdayLong, isIsoDate, todayIn, zoneLongName } from "@/components/booking/time";
+import { addDays, dateShort, dateWeekdayLong, isIsoDate, noticeWords, todayIn, zoneLongName } from "@/components/booking/time";
 import { formatDuration, formatRate } from "@tymo/shared/format";
 import { continueToCheckout } from "../../../actions";
 import { findResource, getDateChips, getDayAvailability, getFacility } from "../../../_lib/engine";
@@ -51,7 +52,8 @@ export default async function PickTime(props: PageProps<"/book/[slug]/r/[resourc
       <StepHeader
         facility={facility}
         step={2}
-        title={[[{ text: "Pick a" }, { text: "time", outline: true }]]}
+        preview={publicPreview}
+        title={[[{ text: publicPreview ? "View start" : "Pick a" }, { text: publicPreview ? "times" : "time", outline: true }]]}
         back={<BackLink href={fieldsHref}>Fields</BackLink>}
       >
         <p>
@@ -71,20 +73,23 @@ export default async function PickTime(props: PageProps<"/book/[slug]/r/[resourc
           Times are {zoneLongName(zone, facility.timeZoneLabel)}
           {facility.city ? ` (${facility.city})` : ""}.
         </p>
+        {publicPreview ? <p>These are sample start times. Checkout is disabled.</p> : null}
       </StepHeader>
 
       <TimeSelectionProvider resetKey={key}>
         <StepFrame
           aside={
-            <TimeSummary
-              action={continueToCheckout.bind(null, slug)}
-              resourceId={option.id}
-              resourceName={option.name}
-              date={date}
-              dateLabel={dateShort(date, zone)}
-              durationMinutes={dur}
-              zoneLabel={facility.timeZoneLabel}
-            />
+            publicPreview ? undefined : (
+              <TimeSummary
+                action={continueToCheckout.bind(null, slug)}
+                resourceId={option.id}
+                resourceName={option.name}
+                date={date}
+                dateLabel={dateShort(date, zone)}
+                durationMinutes={dur}
+                zoneLabel={facility.timeZoneLabel}
+              />
+            )
           }
         >
           <StepSection title="Date" id="date">
@@ -146,7 +151,7 @@ export default async function PickTime(props: PageProps<"/book/[slug]/r/[resourc
           </StepSection>
         </StepFrame>
       </TimeSelectionProvider>
-      <FacilityFooter facility={facility} barSpace />
+      <FacilityFooter facility={facility} barSpace={!publicPreview} />
     </>
   );
 }
@@ -198,7 +203,7 @@ async function Times({
     const phone = deskPhone(facility);
     return (
       <DayNotice
-        title={tooSoonCopy(facility)}
+        title={publicPreview ? `Requests need ${noticeWords(facility.leadTimeMinutes)} notice.` : tooSoonCopy(facility)}
         actions={
           <>
             {seeNext}
@@ -229,5 +234,5 @@ async function Times({
     );
   }
 
-  return <SlotPicker day={day} />;
+  return <SlotPicker day={day} readOnly={publicPreview} />;
 }

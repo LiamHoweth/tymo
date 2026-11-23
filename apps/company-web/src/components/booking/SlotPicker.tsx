@@ -8,7 +8,7 @@ import { useTimeSelection } from "./TimeSelection";
 const PERIODS: SlotOption["period"][] = ["Morning", "Afternoon", "Evening"];
 
 /** Start times in 30-minute steps, grouped Morning / Afternoon / Evening. */
-export function SlotPicker({ day }: { day: DayAvailability }) {
+export function SlotPicker({ day, readOnly }: { day: DayAvailability; readOnly?: boolean }) {
   const { picked, pick } = useTimeSelection();
 
   // After a refresh (e.g. "just taken"), drop a choice that is no longer open.
@@ -38,7 +38,7 @@ export function SlotPicker({ day }: { day: DayAvailability }) {
                   <SlotButton
                     slot={slot}
                     selected={picked?.slot.startsAt === slot.startsAt}
-                    onPick={() => pick({ slot, dateLabel: day.dateLabel })}
+                    onPick={readOnly ? undefined : () => pick({ slot, dateLabel: day.dateLabel })}
                   />
                 </li>
               ))}
@@ -50,7 +50,21 @@ export function SlotPicker({ day }: { day: DayAvailability }) {
   );
 }
 
-function SlotButton({ slot, selected, onPick }: { slot: SlotOption; selected: boolean; onPick: () => void }) {
+function SlotButton({ slot, selected, onPick }: { slot: SlotOption; selected: boolean; onPick?: () => void }) {
+  if (!onPick) {
+    return (
+      <span
+        className={cn(
+          "flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-full border-[1.5px] px-1.5 py-1 text-center leading-tight",
+          slot.available ? "border-line bg-white text-text" : "border-dashed border-[#c3cad6] bg-paper text-muted",
+        )}
+      >
+        <span className="text-[14px] font-semibold tabular-nums">{slot.startLocal}</span>
+        <span className="text-xs">{slot.available ? "Available" : "Not available"}</span>
+      </span>
+    );
+  }
+
   if (!slot.available) {
     return (
       <button

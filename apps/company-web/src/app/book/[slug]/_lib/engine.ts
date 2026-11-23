@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import * as live from "@tymo/company/public";
+import { publicPreview } from "@/app/_lib/public-preview";
 
 /**
  * The booking UI's only door to the engine (src/server/booking/public.ts).
@@ -20,7 +21,12 @@ async function engine(): Promise<Engine> {
   return live;
 }
 
-export const getFacility = cache(async (slug: string) => (await engine()).getFacility(slug));
+export const getFacility = cache(async (slug: string) => {
+  const facility = await (await engine()).getFacility(slug);
+  return facility && publicPreview
+    ? { ...facility, address: null, contactPhone: null, contactEmail: null }
+    : facility;
+});
 export const getFieldGroups = cache(async (slug: string) => (await engine()).getFieldGroups(slug));
 export const getDateChips = cache(async (slug: string, resourceId: string, days: number) =>
   (await engine()).getDateChips(slug, resourceId, days),

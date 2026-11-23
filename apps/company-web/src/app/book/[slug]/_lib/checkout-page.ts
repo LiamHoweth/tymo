@@ -1,6 +1,7 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import type { FacilityPublic } from "@tymo/shared/types";
+import { requireBookingAccess } from "@/app/_lib/public-preview";
 import { clock, compactRange } from "@/components/booking/time";
 import { readCheckout, type CheckoutState } from "./checkout-store";
 import { getFacility } from "./engine";
@@ -12,6 +13,7 @@ export type CheckoutPage =
 
 /** Shared start of every checkout step: facility, checkout state, and the "5:00–6:30 PM" range. */
 export async function loadCheckoutPage(slug: string, token: string): Promise<CheckoutPage> {
+  requireBookingAccess();
   const facility = await getFacility(slug);
   if (!facility) notFound();
   const checkout = await readCheckout(token);

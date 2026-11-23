@@ -5,6 +5,7 @@ import { env } from "@tymo/shared/env";
 export const metadata: Metadata = { title: "Tymo services" };
 
 const ENDPOINTS = [
+  { path: "/api/health", what: "Database readiness", method: "GET" },
   { path: "/api/stripe/webhook", what: "Stripe webhooks (account.updated)", method: "POST" },
   { path: "/api/cron/tick", what: "Sweep: holds, expiry, reminders, completion", method: "POST, Bearer CRON_SECRET" },
   { path: "/dev/outbox", what: "Every email the platform sent (development only)", method: "GET" },
