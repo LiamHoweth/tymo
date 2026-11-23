@@ -54,7 +54,7 @@ and out of this repo).
 2. **Keys:** Developers > API keys. Copy the test publishable key
    (`pk_test_...`) and the test secret key (`sk_test_...`).
 3. **Webhook:** Developers > Webhooks > Add endpoint
-   `https://tymo-app-production.up.railway.app/api/stripe/webhook`,
+   `<your APP_URL>/api/stripe/webhook`,
    listening to **events on connected accounts**, event `account.updated`.
    Copy its signing secret (`whsec_...`).
 4. **Railway:** `tymo-app` > Variables. Set `STRIPE_SECRET_KEY`,
