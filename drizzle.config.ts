@@ -5,6 +5,7 @@ export default defineConfig({
   schema: "./src/server/db/schema.ts",
   out: "./drizzle",
   // Hand-written SQL (exclusion constraint, RLS, roles) lives in
-  // drizzle/*_custom_*.sql and is applied by scripts/migrate.ts after
-  // the generated migrations.
+  // drizzle/custom/*.sql and is applied by runMigrations()
+  // (src/server/db/client.ts, used by scripts/migrate.ts) after the
+  // generated migrations, on every run. Keep it idempotent.
 });
