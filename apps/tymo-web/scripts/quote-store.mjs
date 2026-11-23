@@ -1,0 +1,80 @@
+import { randomUUID } from "node:crypto";
+import pg from "pg";
+
+const schema = `
+  CREATE TABLE IF NOT EXISTS public.tymo_quote_requests (
+    id uuid PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    name varchar(100) NOT NULL,
+    business varchar(140) NOT NULL,
+    business_type varchar(100) NOT NULL,
+    email varchar(254) NOT NULL,
+    phone varchar(40),
+    message varchar(2000)
+  );
+  CREATE INDEX IF NOT EXISTS tymo_quote_requests_received
+    ON public.tymo_quote_requests (created_at DESC, id DESC);
+`;
+
+async function createSchema(pool) {
+  const client = await pool.connect();
+  let failure;
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('tymo:quote-schema'))");
+    await client.query(schema);
+    await client.query("COMMIT");
+  } catch (error) {
+    failure = error;
+    throw error;
+  } finally {
+    // Failed migrations discard the connection, rolling back its transaction.
+    client.release(failure);
+  }
+}
+
+/** This store connects only to the dedicated Tymo marketing database. */
+export function openQuoteStore(connectionString) {
+  const pool = new pg.Pool({
+    connectionString,
+    max: 5,
+    connectionTimeoutMillis: 5_000,
+    statement_timeout: 5_000,
+  });
+  pool.on("error", () => console.warn("[quotes] Idle database connection closed unexpectedly."));
+
+  let initialized;
+  function initialize() {
+    initialized ??= createSchema(pool).catch((error) => {
+      initialized = undefined;
+      throw error;
+    });
+    return initialized;
+  }
+
+  return {
+    initialize,
+    async ready() {
+      await initialize();
+      await pool.query("SELECT id FROM public.tymo_quote_requests LIMIT 0");
+    },
+    async save({ id, name, business, businessType, email, phone, message }) {
+      await initialize();
+      await pool.query(
+        `INSERT INTO public.tymo_quote_requests (id, name, business, business_type, email, phone, message)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (id) DO NOTHING`,
+        [id ?? randomUUID(), name, business, businessType, email, phone, message],
+      );
+    },
+    async list(limit) {
+      const result = await pool.query(
+        `SELECT id, created_at, name, business, business_type, email, phone, message
+         FROM public.tymo_quote_requests ORDER BY created_at DESC, id DESC LIMIT $1`,
+        [limit],
+      );
+      return result.rows;
+    },
+    close: () => pool.end(),
+  };
+}

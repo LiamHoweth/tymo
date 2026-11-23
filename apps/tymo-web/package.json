@@ -2,9 +2,14 @@
   "name": "@tymo/tymo-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Tymo's marketing website (static; publish this folder).",
+  "description": "Tymo's marketing website and first-party quote intake.",
   "scripts": {
     "dev": "node scripts/serve.mjs 3003 127.0.0.1",
-    "start": "node scripts/serve.mjs"
+    "start": "node scripts/serve.mjs",
+    "test": "node --test scripts/*.test.mjs",
+    "quotes:list": "node scripts/list-quotes.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
   }
 }

@@ -17,8 +17,8 @@ button { cursor: pointer; }
 .header-row nav { display: flex; gap: clamp(1rem, 3vw, 2.5rem); margin-left: auto; }
 .header-row nav a { font-size: .95rem; text-decoration: none; color: #d0d3ca; }
 .header-row nav a:hover { color: var(--accent); }
-.header-demo { padding: .64rem 1.2rem; border-radius: 100px; background: var(--accent); color: #161a0f; font-weight: 700; text-decoration: none; font-size: .94rem; }
-.header-demo:hover { background: #e6ff92; }
+.header-quote { display: inline-flex; align-items: center; min-height: 2.75rem; padding: .64rem 1.2rem; border-radius: 100px; background: var(--accent); color: #161a0f; font-weight: 700; text-decoration: none; font-size: .94rem; white-space: nowrap; }
+.header-quote:hover { background: #e6ff92; }
 .facility-strip { background: var(--accent); color: #192010; display: flex; align-items: center; overflow: hidden; }
 .strip-window { overflow: hidden; padding-block: .85rem; }
 .strip-track,.strip-list { display: flex; width: max-content; align-items: center; }
@@ -41,14 +41,14 @@ button { cursor: pointer; }
  .wordmark i { width: 1rem; height: 1rem; }
  .header-row nav { gap: .8rem; }
  .header-row nav a { font-size: .875rem; }
- .header-demo { font-size: .86rem; padding: .54rem .83rem; }
+ .header-quote { font-size: .86rem; padding: .54rem .83rem; }
  .foot-row { flex-wrap: wrap; padding-block: 1.5rem; gap: 1.2rem; justify-content: space-between; }
  .foot-row > a:last-child { flex-basis: 100%; }
 }
-@media(max-width: 390px) { .header-row nav a:last-child { display: none; } }
+@media(max-width: 460px) { .header-row nav a:last-child { display: none; } }
 @media(prefers-reduced-motion: reduce) { .strip-window { overflow-x: auto; } .strip-list[aria-hidden] { display: none; } .strip-toggle { display: none; } }
 .site-top,.site-bottom { background:#131e2b; }
 .wordmark i { position:relative; width:1.1rem; height:1.1rem; background:none; transform:none; border:2px solid var(--accent); }
 .wordmark i::after { content:''; position:absolute; width:.95rem; height:.45rem; border-left:2px solid var(--accent); border-bottom:2px solid var(--accent); transform:rotate(-47deg); top:-.02rem; left:.22rem; box-shadow:0 2px #131e2b; }
 .wordmark { font-style:normal; }
-@media(max-width:390px) { .header-row { gap:.6rem; } .header-demo { white-space:nowrap; padding-inline:.65rem; } .site-rail { width:calc(100% - 1.5rem); } }
+@media(max-width:390px) { .header-row { gap:.6rem; } .header-quote { padding-inline:.65rem; } .site-rail { width:calc(100% - 1.5rem); } }

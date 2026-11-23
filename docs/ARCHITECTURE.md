@@ -9,7 +9,7 @@ Tymo's 2% application fee.
 
 | Layer | Choice |
 | --- | --- |
-| Apps | Next.js 16 (App Router, React 19, server actions), TypeScript, npm workspaces; Tymo website is static HTML |
+| Apps | Next.js 16 (App Router, React 19, server actions), TypeScript and npm workspaces. The Tymo website uses HTML/CSS/JS and a Node HTTP server. |
 | Styling | Tailwind CSS v4 + CSS variables (`packages/ui/src/theme.css`) |
 | Database | PostgreSQL via Drizzle ORM. Local dev and tests use embedded PGlite (no Docker) |
 | Payments | Stripe Connect, direct charges, `capture_method=manual`, application fee |
@@ -24,7 +24,7 @@ company's (facility's) website and services. Logic lives in packages.
 
 | Path | What it is |
 | --- | --- |
-| `apps/tymo-web/` | Tymo's marketing site: static HTML/CSS/JS, published as-is |
+| `apps/tymo-web/` | Marketing and quote intake (`POST /api/quote`) with its own private Postgres database |
 | `apps/tymo-services/` | Readiness (`/api/health`), Stripe webhook (`/api/stripe/webhook`), sweep (`/api/cron/tick` + optional in-process scheduler), dev outbox |
 | `apps/company-web/` | Facility landing (`/facility/[slug]`), renter booking flow and private booking pages (`/book/[slug]`) |
 | `apps/company-services/` | Staff app (`/staff`), staff sign-in, owner Stripe Connect onboarding (`/api/stripe/connect/*`) |
@@ -43,6 +43,10 @@ company's (facility's) website and services. Logic lives in packages.
 
 Dependency direction: apps → `company` → `platform` → `db` → (nothing);
 `ui` and `shared` are used by everything. Apps never import each other.
+
+The marketing server manages its quote table at startup. Quote records
+live in the Tymo Railway project, separate from tenant data, and authorized
+operators read them through the service shell.
 
 **URLs.** Each app has its own base URL (`COMPANY_WEB_URL`,
 `COMPANY_SERVICES_URL`, `TYMO_SERVICES_URL`, `TYMO_WEB_URL`; local

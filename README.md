@@ -12,7 +12,7 @@ uses Tymo, sharing code through packages.
 
 | | Website | Services |
 | --- | --- | --- |
-| **Tymo** | [`apps/tymo-web`](apps/tymo-web): Tymo's marketing site (static) | [`apps/tymo-services`](apps/tymo-services): Stripe webhooks, scheduled sweep, email outbox |
+| **Tymo** | [`apps/tymo-web`](apps/tymo-web): marketing site and quote intake | [`apps/tymo-services`](apps/tymo-services): Stripe webhooks, scheduled sweep, email outbox |
 | **Company** | [`apps/company-web`](apps/company-web): facility landing pages and renter booking | [`apps/company-services`](apps/company-services): the facility staff app (approvals, calendar, blocks, settings) |
 
 | Package | What it holds |
@@ -65,4 +65,5 @@ fictional Redbud prices and availability in the separate booking preview.
 GitHub Actions runs typecheck, lint, tests, and the production builds on pull
 requests. See [AGENTS.md](AGENTS.md) for contribution rules,
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for booking rules, and
-[docs/DEPLOY.md](docs/DEPLOY.md) for Railway setup.
+[docs/DEPLOY.md](docs/DEPLOY.md) for Railway setup and quote review. The
+[site roadmap](docs/MARKETING.md) covers the path from inquiries to pilots.

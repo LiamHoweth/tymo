@@ -1,29 +1,43 @@
-const form = document.querySelector('#demo-form');
-const button = form.querySelector('button');
-const status = document.querySelector('#form-status');
+const quoteForm = document.querySelector('#quote-form');
+const quoteButton = quoteForm.querySelector('button[type="submit"]');
+const quoteRequestId = quoteForm.elements.namedItem('_request_id');
+const quoteStatus = document.querySelector('#quote-status');
+const quoteFailure = 'We couldn’t confirm your request. Please try again.';
 
-form.addEventListener('submit', async (event) => {
+function showQuoteStatus(state, message) {
+  quoteStatus.dataset.state = state;
+  quoteStatus.hidden = false;
+  quoteStatus.textContent = message;
+}
+
+quoteForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (button.disabled) return;
+  if (quoteButton.disabled) return;
 
-  button.disabled = true;
-  status.hidden = false;
-  status.textContent = 'Sending your request…';
+  quoteButton.disabled = true;
+  showQuoteStatus('pending', 'Sending your quote request…');
 
   try {
-    const response = await fetch(form.action, {
+    const response = await fetch(quoteForm.action, {
       method: 'POST',
-      body: new FormData(form),
+      body: new URLSearchParams(new FormData(quoteForm)),
       headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout?.(15_000),
     });
-    if (!response.ok) throw new Error('The form service rejected the request.');
+    const result = await response.json();
 
-    form.reset();
-    status.textContent = 'Thanks. We’ll reach out to find a time for your demo.';
+    if (response.ok && result?.ok === true) {
+      quoteForm.reset();
+      quoteRequestId.defaultValue = globalThis.crypto?.randomUUID?.() ?? '';
+      showQuoteStatus('sent', 'Thanks. We received your quote request and will follow up by email.');
+    } else {
+      const message = typeof result?.message === 'string' ? result.message : quoteFailure;
+      showQuoteStatus('error', message);
+    }
   } catch {
-    status.textContent = 'We couldn’t confirm your request. Please try again.';
+    showQuoteStatus('error', quoteFailure);
   } finally {
-    button.disabled = false;
+    quoteButton.disabled = false;
+    quoteStatus.focus();
   }
 });

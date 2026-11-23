@@ -1,13 +1,13 @@
 # Deploying Tymo
 
-The hosted demo uses two Railway projects in Erjon's workspace. **Tymo**
-hosts Richard's static marketing site. **Advance Soccer Complex** hosts a
-public Tymo proposal preview and a separate Redbud sample booking flow.
-Staff, platform services, and Postgres use the project's private network.
+The deployment uses two Railway projects in Erjon's workspace. **Tymo**
+hosts the marketing site, quote intake, and its private lead database.
+**Advance Soccer Complex** hosts the public facility proposal and Redbud
+sample booking flow, with its own private staff app, platform and Postgres.
 
 | Railway service | Source root | Build | Start | Readiness |
 | --- | --- | --- | --- | --- |
-| `tymo` | `/apps/tymo-web` | — | `npm start` | `/` |
+| `tymo` | `/` | `node --check apps/tymo-web/scripts/serve.mjs` | `npm run start -w @tymo/tymo-web` | `/api/health` |
 | `tymo-services` | `/` | `npm run build -w @tymo/tymo-services` | `npm run start -w @tymo/tymo-services` | `/api/health` |
 | `advance-web` | `/` | `npm run build -w @tymo/company-web` | `npm run start -w @tymo/company-web` | The configured proposal route (`/facility/advance`) |
 | `redbud-staff` | `/` | `npm run build -w @tymo/company-services` | `npm run start -w @tymo/company-services` | `/staff/login` |
@@ -18,16 +18,20 @@ apps install with `npm ci` (`RAILPACK_NODE_NPM_INSTALL=npm ci`). Keep
 uses `tsx` to run `db:prepare`. Start it first on a fresh database so the
 other apps have a migrated schema and seeded demo data. For Git deploys,
 each Next service watches its own app, `packages/`, and the root package
-manifests and TypeScript config. The static service watches `apps/tymo-web/`.
+manifests and TypeScript config. The marketing service watches `apps/tymo-web/`
+and the root package manifests. It installs with
+`npm ci --workspace @tymo/tymo-web --include-workspace-root=false --omit=dev`
+and uses `RAILPACK_PRUNE_DEPS=false` because the install is already scoped.
 
 ## Variables
 
-Set on the three workspace apps unless noted. Store secret values in
-Railway variables. `.env.example` lists their names for local development.
+Set on the three booking workspace apps unless noted. Store secret values
+in Railway variables. `.env.example` lists their names for local development.
 
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}`, using private networking and a role that can `SET ROLE tymo_app` |
+| `TYMO_LEADS_DATABASE_URL` | Marketing service only. Use `${{Postgres.DATABASE_URL}}` in the **Tymo** project |
 | `PORT` | `8080` for all four web services, also the public domain's target port |
 | `COMPANY_WEB_URL` | Public URL of the company website (booking links) |
 | `COMPANY_SERVICES_URL` | Company services base URL, currently `http://redbud-staff.railway.internal:8080` |
@@ -44,11 +48,26 @@ Railway variables. `.env.example` lists their names for local development.
 | `TYMO_PUBLIC_PREVIEW=1` | Company website only. Keep sample fields, prices and availability visible and disable checkout |
 | `TYMO_FACILITY_PROFILE` | Company website only. Runtime JSON that defines the separate proposal landing and links to the actual facility's current site and rental portal |
 
-Use `PAYMENTS_MODE=fake` throughout the demo and keep Stripe and Resend keys
-unset. Enable public domains on the marketing and facility web services. Keep
-the demo staff and platform services on the private network and leave the
-database TCP proxy disabled. A real facility needs its own configuration and
-must keep `TYMO_DEMO` and `TYMO_SEED_DEMO` unset.
+Use `PAYMENTS_MODE=fake` throughout the booking demo and keep Stripe and
+Resend keys unset. Enable public domains on the marketing and facility web
+services. Keep demo staff, platform services and both databases private.
+A real facility needs its own configuration with `TYMO_DEMO` and
+`TYMO_SEED_DEMO` unset.
+
+### Review quote requests
+
+The marketing site uses `NODE_ENV=production` and initializes its quote
+table at startup. `POST /api/quote` saves inquiries in the **Tymo**
+project's database and confirms receipt on the site. Operators with Railway
+SSH access can review the most recent requests from the `tymo` service shell.
+
+```bash
+npm run quotes:list -w @tymo/tymo-web -- 20
+```
+
+Only share quote records with authorized staff. Keep personal information
+out of issues, logs, fixtures and public analytics. Review and reply from
+the approved business inbox while the quote workflow is handled manually.
 
 ### Facility proposal profile
 
@@ -81,9 +100,10 @@ and service. Check the deployed commit and the configured readiness path.
 Follow the proposal's sample booking link to `/book/redbud` and verify that
 sample availability opens in preview mode. Check the official rental link
 against the facility's public website. For workflow changes, exercise full
-fake checkout and staff approval locally
-with `npm run dev`. Use the deployed marketing form only with authorization
-to send an inquiry to the existing Formspree destination.
+fake checkout and staff approval locally with `npm run dev`. For the quote
+flow, verify `/api/health`, submit an authorized synthetic inquiry, confirm
+the exact saved record through the operator workflow, and remove that test
+record afterward.
 
 ## Switching on Stripe test mode
 
