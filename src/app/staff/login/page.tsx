@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Display, Kicker, Spark, TymoLogo } from "@/components/ui";
+import { Button, Display, Kicker, Spark, TymoLogo } from "@/components/ui";
 import { env } from "@/lib/env";
 import { getStaffSession } from "@/server/auth";
+import { demoSignIn } from "./demo";
 import { LoginForm, type LinkError } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Staff sign in" };
@@ -33,6 +34,33 @@ export default async function StaffLoginPage({
         <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/80">
           Approve requests and run the calendar from your phone. Enter your work email and we&apos;ll send you a link.
         </p>
+        {env.demoMode ? (
+          <section
+            aria-labelledby="demo-signin"
+            className="mt-8 rounded-card ink-card p-5 shadow-[0_24px_60px_-24px_rgb(0_0_0/0.6)] sm:p-6"
+          >
+            <h2 id="demo-signin" className="kicker text-white/80">
+              Demo facility
+            </h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/85">
+              This is a demo with a made-up facility, Redbud Soccer Complex. Sign in with one tap to see the staff side.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <form action={demoSignIn}>
+                <input type="hidden" name="role" value="owner" />
+                <Button type="submit" block>
+                  Sign in as the owner
+                </Button>
+              </form>
+              <form action={demoSignIn}>
+                <input type="hidden" name="role" value="staff" />
+                <Button type="submit" variant="ghostDark" block>
+                  Sign in as staff
+                </Button>
+              </form>
+            </div>
+          </section>
+        ) : null}
         <div className="mt-8 rounded-card bg-white p-5 text-text shadow-[0_24px_60px_-24px_rgb(0_0_0/0.6)] sm:p-6">
           <LoginForm linkError={linkError} devHint={!env.isProd} />
         </div>

@@ -15,4 +15,6 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY || "",
   emailFrom: process.env.EMAIL_FROM || "bookings@booktymo.com",
   isProd: process.env.NODE_ENV === "production",
+  /** Public demo deployment: shows one-tap sign-in for the seeded demo staff. Never set for a real facility. */
+  demoMode: process.env.TYMO_DEMO === "1",
 } as const;
