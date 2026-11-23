@@ -17,6 +17,19 @@ export async function createOnboardingUrl(tenantId: string): Promise<string> {
   const tenant = await loadTenant(tenantId);
   let stripeAccountId = tenant.stripeAccountId;
 
+  // Demo seeds store a fake-provider id. Once real Stripe is switched on,
+  // replace it with a real connected account instead of reusing it.
+  if (stripeAccountId && provider.mode === "stripe" && stripeAccountId.startsWith("acct_fake_")) {
+    const placeholder = stripeAccountId;
+    await withSystem((tx) =>
+      tx
+        .update(tenants)
+        .set({ stripeAccountId: null, stripeChargesEnabled: false, stripeDetailsSubmitted: false })
+        .where(and(eq(tenants.id, tenantId), eq(tenants.stripeAccountId, placeholder))),
+    );
+    stripeAccountId = null;
+  }
+
   if (!stripeAccountId) {
     const created = await provider.createConnectedAccount({
       tenantId,
