@@ -10,10 +10,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project conventions
 
-- Read `docs/ARCHITECTURE.md` first. Its booking rules are final decisions.
-- Four apps (`apps/tymo-web`, `apps/tymo-services`, `apps/company-web`, `apps/company-services`) share logic through `packages/`. Apps never import each other; put shared logic in a package.
+- Start with `README.md` for commands and entry points, `docs/ARCHITECTURE.md` for module ownership and booking rules, and `docs/DEPLOY.md` for Railway. Check `AGENT_NOTES.md` for the current handoff.
+- Make web changes in the app that owns the user journey. `tymo-web` owns Richard's static Tymo site, `company-web` owns facility pages and renter booking, `company-services` owns the staff experience, and `tymo-services` owns platform jobs and public HTTP endpoints.
+- Apps share logic through `packages/` and never import each other. Keep booking rules in `packages/company`, payments and identity in `packages/platform`, and UI primitives in `packages/ui`.
 - `packages/db/src/schema.ts` and `packages/shared/src/types.ts` are shared contracts. Change them only when you must, and keep changes additive.
 - Server code imports `server-only`. Money is integer cents. Instants are UTC; display uses the facility time zone via Luxon.
 - App UI uses the primitives in `packages/ui` (`@tymo/ui`) and the tokens in `packages/ui/src/theme.css` (court navy, one accent, extra-wide uppercase display type with outlined words, pill controls, dark ink cards). Mobile-first at 375px; tap targets at least 44px; status always in words.
 - This repo is public: no secrets, no real facility or person names in code, seeds or tests. The demo facility is the fictional "Redbud Soccer Complex".
-- Before committing: `npm run typecheck`, `npm run lint`, `npm test`.
+- Run `npm ci` at the root. Parallel agents in the same checkout should coordinate dependency installs and avoid running Next dev, type generation, or builds for the same workspace concurrently because they share `.next/`.
+- Before committing, run `npm run typecheck`, `npm run lint`, and `npm test`. Build each changed Next.js workspace with `npm run build -w @tymo/<app>`.
+- Use a dedicated database for local tests that need PostgreSQL. `npm run db:reset` clears the local demo database. Keep deployment secrets and live data out of source and test fixtures.

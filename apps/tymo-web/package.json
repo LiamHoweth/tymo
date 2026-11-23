@@ -4,7 +4,7 @@
   "private": true,
   "description": "Tymo's marketing website (static; publish this folder).",
   "scripts": {
-    "dev": "node scripts/serve.mjs 3003",
+    "dev": "node scripts/serve.mjs 3003 127.0.0.1",
     "start": "node scripts/serve.mjs"
   }
 }
