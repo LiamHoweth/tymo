@@ -1,50 +1,63 @@
 # Tymo
 
-**Get booked. Get paid.** Branded booking and payments for sports
-facilities: renters pick a field and time on the facility's own page and
-send a request with their card held; staff approve from a phone; the card
-is charged and the facility gets paid.
+**Get booked. Get paid.** Branded booking and payments for businesses that
+rent time: renters request a time on the business's own page with their
+card held; staff approve from a phone; the card is charged and the business
+gets paid.
 
-This repository is v1: one booking, end to end, at one facility.
+## What's in this repo
 
-Nothing is deployed right now. See [docs/DEPLOY.md](docs/DEPLOY.md) for
-how to deploy on Railway and how to switch on Stripe test mode.
+Four separate apps, two for Tymo and two for each company (facility) that
+uses Tymo, sharing code through packages.
+
+| | Website | Services |
+| --- | --- | --- |
+| **Tymo** | [`apps/tymo-web`](apps/tymo-web): Tymo's marketing site (static) | [`apps/tymo-services`](apps/tymo-services): Stripe webhooks, scheduled sweep, email outbox |
+| **Company** | [`apps/company-web`](apps/company-web): each facility's branded booking pages for renters | [`apps/company-services`](apps/company-services): the facility staff app (approvals, calendar, blocks, settings) |
+
+| Package | What it holds |
+| --- | --- |
+| [`packages/company`](packages/company) | Company logic: the booking engine, demo seed data, dev database |
+| [`packages/platform`](packages/platform) | Tymo logic: payments (Stripe Connect), email, staff sign-in |
+| [`packages/db`](packages/db) | Schema, migrations, database connections |
+| [`packages/ui`](packages/ui) | Design system: tokens (`theme.css`) and React primitives |
+| [`packages/shared`](packages/shared) | Types, formatting, server config |
 
 ## Run it locally
 
-Requires Node 24+. No database server or Stripe account needed for local
-dev: the app uses an embedded PGlite database and a fake payment provider.
+Requires Node 24+. No database server or Stripe account needed: a shared
+embedded database (PGlite) and a fake payment provider stand in.
 
 ```bash
 npm install
-npm run db:reset   # create .data/pglite, migrate, seed the demo facility
-npm run dev        # http://localhost:3000
+npm run dev
 ```
 
-- Customer flow: http://localhost:3000/book/redbud
-- Staff app: http://localhost:3000/staff (sign-in links appear in the dev
-  outbox at http://localhost:3000/dev/outbox)
-- Fake cards: any 16 digits succeed; `4000 0000 0000 0002` declines.
+| App | URL |
+| --- | --- |
+| Company website | http://localhost:3000/book/redbud |
+| Company services | http://localhost:3001/staff |
+| Tymo services | http://localhost:3002 (sign-in emails at http://localhost:3002/dev/outbox) |
+| Tymo website | http://localhost:3003 |
+
+`npm run dev` also starts the dev database on port 5433 and seeds the demo
+facility, Redbud Soccer Complex (made up), the first time. Sign in to the
+staff app as `owner@redbud.example` or `staff@redbud.example`; the link
+lands in the dev outbox. Fake cards: any 16 digits work, `4000 0000 0000
+0002` declines.
 
 ## Scripts
 
 | Script | What it does |
 | --- | --- |
-| `npm run dev` | Next.js dev server |
+| `npm run dev` | Dev database + all four apps |
 | `npm test` | Unit and integration tests (Vitest + PGlite) |
-| `npm run typecheck` | TypeScript, no emit |
+| `npm run typecheck` | TypeScript in every workspace |
 | `npm run lint` | ESLint |
+| `npm run build` | Production build of every app |
+| `npm run db:reset` | Wipe local data, migrate and seed (stop `npm run dev` first) |
 | `npm run db:generate` | Generate SQL migrations from the schema |
-| `npm run db:migrate` | Apply migrations |
-| `npm run db:seed` | Seed the demo facility |
-| `npm run db:reset` | Delete local data, migrate and seed |
 
-## Configuration
-
-Copy `.env.example` to `.env.local`. Set `DATABASE_URL` for Postgres,
-`STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` +
-`STRIPE_WEBHOOK_SECRET` for real payments, and `RESEND_API_KEY` for email
-delivery.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the stack, module map
-and the booking rules the code enforces.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the booking rules the
+code enforces and [docs/DEPLOY.md](docs/DEPLOY.md) for deploying. Nothing is
+deployed right now.

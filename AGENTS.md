@@ -11,8 +11,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Project conventions
 
 - Read `docs/ARCHITECTURE.md` first. Its booking rules are final decisions.
-- `src/server/db/schema.ts` and `src/lib/types.ts` are shared contracts. Change them only when you must, and keep changes additive.
+- Four apps (`apps/tymo-web`, `apps/tymo-services`, `apps/company-web`, `apps/company-services`) share logic through `packages/`. Apps never import each other; put shared logic in a package.
+- `packages/db/src/schema.ts` and `packages/shared/src/types.ts` are shared contracts. Change them only when you must, and keep changes additive.
 - Server code imports `server-only`. Money is integer cents. Instants are UTC; display uses the facility time zone via Luxon.
-- UI uses the primitives in `src/components/ui` and the tokens in `src/app/globals.css` (court navy, one accent, extra-wide uppercase display type with outlined words, pill controls, dark ink cards). Mobile-first at 375px; tap targets at least 44px; status always in words.
+- App UI uses the primitives in `packages/ui` (`@tymo/ui`) and the tokens in `packages/ui/src/theme.css` (court navy, one accent, extra-wide uppercase display type with outlined words, pill controls, dark ink cards). Mobile-first at 375px; tap targets at least 44px; status always in words.
 - This repo is public: no secrets, no real facility or person names in code, seeds or tests. The demo facility is the fictional "Redbud Soccer Complex".
 - Before committing: `npm run typecheck`, `npm run lint`, `npm test`.

@@ -1,0 +1,23 @@
+{
+  "name": "@tymo/tymo-services",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tymo services: Stripe webhooks, scheduled sweep, email outbox.",
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "tsx ../../packages/company/scripts/prepare.ts && next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@tymo/shared": "*",
+    "@tymo/ui": "*",
+    "@tymo/company": "*",
+    "@tymo/db": "*",
+    "@tymo/platform": "*",
+    "drizzle-orm": "^0.45.4"
+  }
+}

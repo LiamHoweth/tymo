@@ -1,0 +1,24 @@
+{
+  "name": "@tymo/company-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Company website: each facility's branded booking pages for renters.",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@tymo/shared": "*",
+    "@tymo/ui": "*",
+    "@tymo/company": "*",
+    "@stripe/react-stripe-js": "^7.1.0",
+    "@stripe/stripe-js": "^10.3.0",
+    "luxon": "^3.7.2",
+    "server-only": "^0.0.1"
+  }
+}

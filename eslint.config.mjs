@@ -5,13 +5,20 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  {
+    // Monorepo: the Next.js apps live under apps/.
+    settings: { next: { rootDir: ["apps/company-web/", "apps/company-services/", "apps/tymo-services/"] } },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
+    "**/.next/**",
+    "**/out/**",
+    "**/build/**",
+    "**/next-env.d.ts",
+    "**/node_modules/**",
+    ".data/**",
+    ".claude/**",
+    // Static marketing site (plain browser JS, no React).
+    "apps/tymo-web/**",
   ]),
 ]);
 

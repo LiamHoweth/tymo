@@ -1,0 +1,22 @@
+{
+  "name": "@tymo/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schema, migrations and database connections (Postgres or PGlite).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx scripts/migrate.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.17",
+    "@electric-sql/pglite-socket": "0.2.20",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "server-only": "^0.0.1"
+  }
+}

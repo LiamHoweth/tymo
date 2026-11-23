@@ -1,0 +1,25 @@
+{
+  "name": "@tymo/platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tymo services logic: payments (Stripe Connect), email, staff auth.",
+  "exports": {
+    "./payments": "./src/payments/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tymo/db": "*",
+    "@tymo/shared": "*",
+    "drizzle-orm": "^0.45.4",
+    "luxon": "^3.7.2",
+    "stripe": "^23.2.0",
+    "server-only": "^0.0.1"
+  },
+  "peerDependencies": {
+    "next": "16.4.6"
+  }
+}

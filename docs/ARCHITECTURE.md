@@ -9,8 +9,8 @@ Tymo's 2% application fee.
 
 | Layer | Choice |
 | --- | --- |
-| App | Next.js 16 (App Router, React 19, server actions), TypeScript |
-| Styling | Tailwind CSS v4 + CSS variables (`src/app/globals.css`) |
+| Apps | Next.js 16 (App Router, React 19, server actions), TypeScript, npm workspaces; Tymo website is static HTML |
+| Styling | Tailwind CSS v4 + CSS variables (`packages/ui/src/theme.css`) |
 | Database | PostgreSQL via Drizzle ORM. Local dev and tests use embedded PGlite (no Docker) |
 | Payments | Stripe Connect, direct charges, `capture_method=manual`, application fee |
 | Dates | Luxon, facility time zone (`tenants.time_zone`) |
@@ -19,22 +19,41 @@ Tymo's 2% application fee.
 
 ## Module map and ownership
 
+Four apps, split by audience: Tymo's website and services, and each
+company's (facility's) website and services. Logic lives in packages.
+
 | Path | What it is |
 | --- | --- |
-| `src/server/db/schema.ts` | The schema: the contract every module codes against |
-| `src/server/db/index.ts` | `getDb`, `withTenant`, `withSystem` |
-| `drizzle/` + `scripts/` | Migrations (generated + hand-written SQL), migrate and seed scripts |
-| `src/server/booking/public.ts` | Customer-facing engine API |
-| `src/server/booking/staff.ts` | Staff engine API |
-| `src/server/booking/jobs.ts` | Sweeper: holds, expiry, reminders, completion, recurring blocks |
-| `src/server/payments/` | `PaymentProvider` interface, fake provider, Stripe provider, fees |
-| `src/server/email/` | `notify()` + templates + outbox delivery |
-| `src/server/auth/` | Staff magic-link sign-in and sessions |
-| `src/lib/types.ts` | DTOs shared by engine and UI |
-| `src/components/ui/` | Design-system primitives |
-| `src/app/book/[slug]/` | Customer booking flow |
-| `src/app/staff/` | Staff app |
-| `src/app/api/` | Stripe webhooks, cron tick |
+| `apps/tymo-web/` | Tymo's marketing site: static HTML/CSS/JS, published as-is |
+| `apps/tymo-services/` | Stripe webhook (`/api/stripe/webhook`), sweep (`/api/cron/tick` + optional in-process scheduler), dev outbox |
+| `apps/company-web/` | Renter booking flow and private booking page (`/book/[slug]`) |
+| `apps/company-services/` | Staff app (`/staff`), staff sign-in, owner Stripe Connect onboarding (`/api/stripe/connect/*`) |
+| `packages/db/src/schema.ts` | The schema: the contract every module codes against |
+| `packages/db/src/index.ts` | `getDb`, `withTenant`, `withSystem` |
+| `packages/db/drizzle/` | Migrations (generated + hand-written SQL in `custom/`) |
+| `packages/company/src/public.ts` | Customer-facing engine API |
+| `packages/company/src/staff.ts` | Staff engine API |
+| `packages/company/src/jobs.ts` | Sweeper: holds, expiry, reminders, completion, recurring blocks |
+| `packages/company/src/seed.ts` + `scripts/` | Demo seed data, dev database server, reset and prepare scripts |
+| `packages/platform/src/payments/` | `PaymentProvider` interface, fake provider, Stripe provider, fees, Connect |
+| `packages/platform/src/email/` | `notify()` + templates + outbox delivery |
+| `packages/platform/src/auth/` | Staff magic-link sign-in and sessions |
+| `packages/shared/src/` | DTOs (`types.ts`), formatting, server config (`env.ts`) |
+| `packages/ui/src/` | Design-system primitives and `theme.css` tokens |
+
+Dependency direction: apps → `company` → `platform` → `db` → (nothing);
+`ui` and `shared` are used by everything. Apps never import each other.
+
+**URLs.** Each app has its own base URL (`COMPANY_WEB_URL`,
+`COMPANY_SERVICES_URL`, `TYMO_SERVICES_URL`, `TYMO_WEB_URL`; local
+defaults ports 3000, 3001, 3002, 3003). Booking links in emails use the
+company website; sign-in, staff and Stripe return links use company services.
+
+**Local database.** `npm run dev` serves one embedded PGlite over the
+Postgres protocol on 127.0.0.1:5433 (`packages/company/scripts/dev-db.ts`);
+every app connects to it. Its multiplexer queues other clients while one is
+in a transaction, so tenant settings never leak between apps. Tests use
+in-memory PGlite directly.
 
 ## Booking rules (from the v1 spec; these are final)
 
@@ -137,12 +156,12 @@ Accounts v2, full Dashboard, Stripe liable for losses). Flow:
 4. Refunds come from the facility's balance; Tymo returns its fee in
    proportion (`refund_application_fee=true`).
 
-Without Stripe keys the fake provider (`src/server/payments/fake.ts`)
+Without Stripe keys the fake provider (`packages/platform/src/payments/fake.ts`)
 simulates all of this; card `4000 0000 0000 0002` declines.
 
 ## Emails
 
-Every email is a `NotifyEvent` in `src/server/email/notify.ts`. From name
+Every email is a `NotifyEvent` in `packages/platform/src/email/notify.ts`. From name
 = facility name, from address = `EMAIL_FROM`, reply-to = facility email.
 Each customer email repeats field, date and time with the zone label and
 the private link.
