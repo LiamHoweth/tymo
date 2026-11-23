@@ -43,3 +43,6 @@ next-env.d.ts
 # local data and env
 .data/
 !.env.example
+
+# agent worktrees
+.claude/worktrees/
