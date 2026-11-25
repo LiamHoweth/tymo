@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
+import { createQuoteNotifier } from "./quote-notify.mjs";
 
 const bodyLimit = 32 * 1024;
 const windowMs = 10 * 60 * 1000;
@@ -144,7 +145,8 @@ export function renderQuotePage(body, state) {
   ));
 }
 
-export function createQuoteHandler(store, behindRailway = false) {
+/** `notify(quote)` emails each newly saved request (see quote-notify.mjs); null turns emails off. */
+export function createQuoteHandler(store, behindRailway = false, notify = createQuoteNotifier()) {
   const attempts = new Map();
   let windowEnd = 0;
 
@@ -204,8 +206,10 @@ export function createQuoteHandler(store, behindRailway = false) {
       }
       const quote = validateQuote(form);
       if (!store) throw new QuoteRequestError(503, unavailable);
-      await store.save(quote);
+      const isNew = await store.save(quote);
       quoteResult(request, response, 201, { ok: true });
+      // A retried form (same request id) is not emailed twice. The email never delays or fails the response.
+      if (notify && isNew !== false) void Promise.resolve(notify(quote)).catch(() => {});
     } catch (error) {
       if (response.destroyed) return;
       if (error instanceof QuoteRequestError) {

@@ -58,14 +58,16 @@ export function openQuoteStore(connectionString) {
       await initialize();
       await pool.query("SELECT id FROM public.tymo_quote_requests LIMIT 0");
     },
+    /** Resolves true when this saved a new request, false for a retried form (same id). */
     async save({ id, name, business, businessType, email, phone, message }) {
       await initialize();
-      await pool.query(
+      const result = await pool.query(
         `INSERT INTO public.tymo_quote_requests (id, name, business, business_type, email, phone, message)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (id) DO NOTHING`,
         [id ?? randomUUID(), name, business, businessType, email, phone, message],
       );
+      return result.rowCount > 0;
     },
     async list(limit) {
       const result = await pool.query(
@@ -74,6 +76,15 @@ export function openQuoteStore(connectionString) {
         [limit],
       );
       return result.rows;
+    },
+    /** One request by id, or null. */
+    async get(id) {
+      const result = await pool.query(
+        `SELECT id, created_at, name, business, business_type, email, phone, message
+         FROM public.tymo_quote_requests WHERE id = $1`,
+        [id],
+      );
+      return result.rows[0] ?? null;
     },
     close: () => pool.end(),
   };
