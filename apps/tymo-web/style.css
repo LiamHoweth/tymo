@@ -24,12 +24,9 @@ button { cursor: pointer; }
 .strip-track,.strip-list { display: flex; width: max-content; align-items: center; }
 .strip-list span { display: inline-flex; align-items: center; white-space: nowrap; font: 700 1.2rem/1.2 "Barlow Condensed",sans-serif; letter-spacing: .06em; text-transform: uppercase; padding-inline: 1.25rem; }
 .strip-list span::before { content: ''; width: 8px; height: 8px; background: currentColor; transform: skew(-18deg); margin-right: 2rem; }
-.strip-toggle { align-self: stretch; flex: 0 0 3.3rem; background: inherit; color: inherit; border: 0; border-right: 1px solid #8ca637; font-size: 1.15rem; }
-.strip-toggle:focus-visible { outline-offset: -4px; outline-color: #253207; }
 @media (prefers-reduced-motion: no-preference) {
  html { scroll-behavior: smooth; }
  .strip-track.playable { animation: crawl 38s linear infinite; }
- .strip-track.paused { animation-play-state: paused; }
 }
 @keyframes crawl { to { transform: translateX(-50%); } }
 .site-bottom { background: #101510; color: #bbc1b4; }
@@ -46,7 +43,7 @@ button { cursor: pointer; }
  .foot-row > a:last-child { flex-basis: 100%; }
 }
 @media(max-width: 390px) { .header-row nav a:last-child { display: none; } }
-@media(prefers-reduced-motion: reduce) { .strip-window { overflow-x: auto; } .strip-list[aria-hidden] { display: none; } .strip-toggle { display: none; } }
+@media(prefers-reduced-motion: reduce) { .strip-window { overflow-x: auto; } .strip-list[aria-hidden] { display: none; } }
 .site-top,.site-bottom { background:#131e2b; }
 .wordmark i { position:relative; width:1.1rem; height:1.1rem; background:none; transform:none; border:2px solid var(--accent); }
 .wordmark i::after { content:''; position:absolute; width:.95rem; height:.45rem; border-left:2px solid var(--accent); border-bottom:2px solid var(--accent); transform:rotate(-47deg); top:-.02rem; left:.22rem; box-shadow:0 2px #131e2b; }

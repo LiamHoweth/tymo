@@ -1,7 +1,6 @@
 (() => {
   const hero = document.querySelector('.campaign');
   const word = hero.querySelector('.campaign-word');
-  const toggle = hero.querySelector('.campaign-toggle');
   if (!word.animate) return;
 
   const words = ['schedule,', 'spa,', 'complex,'];
@@ -10,11 +9,10 @@
   let index = 0;
   let timer;
   let playingAnimation;
-  let paused = false;
   let visible = true;
 
   function canRotate() {
-    return visible && !paused && !preference.matches && !document.hidden;
+    return visible && !preference.matches && !document.hidden;
   }
 
   async function rotate() {
@@ -46,20 +44,7 @@
     if (canRotate()) timer = setTimeout(rotate, 4700);
   }
 
-  function updatePreference() {
-    toggle.hidden = preference.matches;
-    schedule();
-  }
-
-  toggle.addEventListener('click', () => {
-    paused = !paused;
-    toggle.toggleAttribute('data-paused', paused);
-    const label = paused ? 'Play slideshow' : 'Pause slideshow';
-    toggle.setAttribute('aria-label', label);
-    toggle.title = label;
-    schedule();
-  });
-  preference.addEventListener('change', updatePreference);
+  preference.addEventListener('change', schedule);
   document.addEventListener('visibilitychange', schedule);
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(([entry]) => {
@@ -68,5 +53,5 @@
     });
     observer.observe(hero);
   }
-  updatePreference();
+  schedule();
 })();
