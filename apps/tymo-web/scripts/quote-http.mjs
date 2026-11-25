@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
-import { createQuoteNotifier } from "./quote-notify.mjs";
+import { createQuoteNotifier, emailRecord } from "./quote-notify.mjs";
 
 const bodyLimit = 32 * 1024;
 const windowMs = 10 * 60 * 1000;
@@ -145,6 +145,16 @@ export function renderQuotePage(body, state) {
   ));
 }
 
+/** Sends the request email, then records how it went for the admin page. Never throws. */
+async function emailAndRecord(store, notify, quote) {
+  try {
+    const outcome = notify ? await notify(quote) : { sent: false, reason: "no_inbox" };
+    if (typeof store.recordEmail === "function") await store.recordEmail(quote.id, emailRecord(outcome));
+  } catch {
+    console.warn("[quotes] Could not record a request email's result.");
+  }
+}
+
 /** `notify(quote)` emails each newly saved request (see quote-notify.mjs); null turns emails off. */
 export function createQuoteHandler(store, behindRailway = false, notify = createQuoteNotifier()) {
   const attempts = new Map();
@@ -206,10 +216,12 @@ export function createQuoteHandler(store, behindRailway = false, notify = create
       }
       const quote = validateQuote(form);
       if (!store) throw new QuoteRequestError(503, unavailable);
+      // A fixed id lets the email's outcome be recorded against this request.
+      quote.id ??= randomUUID();
       const isNew = await store.save(quote);
       quoteResult(request, response, 201, { ok: true });
       // A retried form (same request id) is not emailed twice. The email never delays or fails the response.
-      if (notify && isNew !== false) void Promise.resolve(notify(quote)).catch(() => {});
+      if (isNew !== false) void emailAndRecord(store, notify, quote);
     } catch (error) {
       if (response.destroyed) return;
       if (error instanceof QuoteRequestError) {

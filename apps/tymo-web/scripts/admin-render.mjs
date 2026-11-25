@@ -74,7 +74,42 @@ export function notesPreview(message, limit = 120) {
 }
 
 const telHref = (phone) => `tel:${String(phone).split(/[x#]/i, 1)[0].replace(/[^\d+]/g, "")}`;
-const requestHref = (row) => `/admin/requests/${encodeURIComponent(String(row.id).toLowerCase())}`;
+const requestId = (row) => encodeURIComponent(String(row.id).toLowerCase());
+const requestHref = (row) => `/admin/requests/${requestId(row)}`;
+const selectHref = (row) => `/admin?request=${requestId(row)}`;
+
+/**
+ * How the request email went, for people: a status word, a tone for its
+ * square marker, and one sentence. Reads the email_* columns quote-store.mjs
+ * records after each request.
+ */
+export function emailStatus(row) {
+  const at = row.email_at ? formatReceived(row.email_at) : null;
+  const to = row.email_to || null;
+  switch (row.email_status) {
+    case "sent":
+      return { label: "Sent", tone: "ok", detail: `Sent to ${to ?? "the team inbox"}${at ? ` · ${at}` : ""}.` };
+    case "not_sent":
+      return {
+        label: "Not sent",
+        tone: "warn",
+        detail: row.email_detail === "no_inbox"
+          ? "No inbox is set, so this wasn't emailed. Add TYMO_QUOTE_NOTIFY_TO on the Tymo website service."
+          : `The email service isn't set up yet, so this wasn't emailed${to ? ` to ${to}` : ""}. Add RESEND_API_KEY on the Tymo website service.`,
+      };
+    case "failed": {
+      const code = /^status_(\d{3})$/.exec(row.email_detail ?? "")?.[1];
+      const why = code ? `Resend refused it (status ${code}).` : row.email_detail === "network" ? "Couldn't reach Resend." : "Sending failed.";
+      return { label: "Failed", tone: "danger", detail: `${why}${to ? ` It was going to ${to}.` : ""}${at ? ` Tried ${at}.` : ""}` };
+    }
+    default:
+      return { label: "Not recorded", tone: "muted", detail: "This request came in before email tracking was added." };
+  }
+}
+
+function statusMark(status) {
+  return html`<span class="status"><span class="mark mark-${status.tone}" aria-hidden="true"></span>${status.label}</span>`;
+}
 
 /** Date and time stay on their own lines when a narrow column wraps. */
 function receivedText(value, options) {
@@ -157,21 +192,6 @@ h1{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.01em;overflo
 .lines dd{min-width:0;overflow-wrap:anywhere}
 .lines .tap-label{padding-top:12px}
 .lines .contact{padding:0}
-.table-wrap{display:none;overflow-x:auto;border:1px solid var(--line);background:var(--card)}
-table{width:100%;border-collapse:collapse;text-align:left}
-th{padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-td{padding:0 12px;border-bottom:1px solid var(--line);vertical-align:top}
-th:first-child,td:first-child{padding-left:16px}
-th:last-child,td:last-child{padding-right:16px}
-tbody tr:last-child td{border-bottom:0}
-tbody tr:hover,tbody tr:has(a:focus-visible){background:var(--paper)}
-.cell{padding:12px 0}
-.col-received{min-width:8.5rem}
-.col-name{min-width:7rem}
-.col-business{min-width:8rem}
-.col-contact{min-width:11rem;max-width:18rem}
-.col-notes{min-width:9rem;max-width:22rem}
-.col-name .row-link{overflow-wrap:break-word}
 .panel{border:1px solid var(--line);background:var(--card)}
 .panel-head{padding:12px 16px;border-bottom:1px solid var(--line)}
 .panel-head h2{font-size:15px;line-height:20px;font-weight:600}
@@ -183,6 +203,35 @@ tbody tr:hover,tbody tr:has(a:focus-visible){background:var(--paper)}
 .details .has-tap{padding:0}
 .details .has-tap .tap{max-width:100%}
 .details .notes{white-space:pre-wrap}
+.status{display:inline-flex;align-items:center;gap:8px;font-weight:500;color:var(--text)}
+.mark{flex:none;width:8px;height:8px;background:var(--muted)}
+.mark-ok{background:#12804a}
+.mark-warn{background:#a8670d}
+.mark-danger{background:var(--danger)}
+.inbox{display:none}
+.picks{border:1px solid var(--line);background:var(--card)}
+.picks li+li{border-top:1px solid var(--line)}
+.pick{display:flex;flex-direction:column;gap:4px;min-height:44px;padding:12px 16px 12px 14px;border-left:2px solid transparent;text-decoration:none}
+.pick:hover{background:var(--paper)}
+.pick[aria-current]{border-left-color:var(--accent);background:#eaeef5}
+.pick-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.pick-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.pick-time{flex:none;font-size:12px;color:var(--muted)}
+.pick-sub,.pick-notes{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.pick-sub{color:var(--muted)}
+.pick-email{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.pick-email .status{font-weight:500}
+.selected{position:sticky;top:16px}
+.selected-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-bottom:1px solid var(--line)}
+.selected-head h2{font-size:18px;line-height:24px;font-weight:600;overflow-wrap:anywhere}
+.selected-head .lede{margin-top:2px}
+.section{padding:16px;border-top:1px solid var(--line)}
+.section:first-child{border-top:0}
+.section-label{margin-bottom:8px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.notes-full{font-size:15px;line-height:22px;white-space:pre-wrap;overflow-wrap:anywhere}
+.email-detail{margin-top:6px;color:var(--muted);overflow-wrap:anywhere}
+.section .details > div{padding:0}
+.stack{display:flex;flex-direction:column;gap:16px}
 .login{display:flex;flex:1;justify-content:center;padding:40px 16px}
 .login-panel{align-self:flex-start;width:100%;max-width:24rem;border:1px solid var(--line);background:var(--card)}
 .login-head{padding:16px 20px;border-bottom:1px solid var(--line)}
@@ -200,9 +249,11 @@ label{display:block;margin-bottom:4px;font-weight:500}
 .nav li{flex:none}
 .frame{padding:32px 24px}
 h1{font-size:24px;line-height:30px}
-.cards{display:none}
-.table-wrap{display:block}
 .login{padding:80px 24px}
+}
+@media (min-width:960px){
+.cards{display:none}
+.inbox{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;align-items:start}
 }
 `;
 
@@ -293,27 +344,68 @@ function requestCards(rows, now) {
 <dt>Business</dt><dd><span class="strong">${row.business}</span><span class="sub">${row.business_type}</span></dd>
 <dt class="tap-label">Contact</dt><dd class="contact">${contactLines(row)}</dd>
 <dt>Notes</dt><dd>${notesText(row)}</dd>
+<dt>Team email</dt><dd>${statusMark(emailStatus(row))}</dd>
 </dl></li>`)}
 </ul>`;
 }
 
-function requestTable(rows, now) {
-  return html`<div class="table-wrap"><table>
-<thead><tr><th scope="col">Received</th><th scope="col">Name</th><th scope="col">Business</th><th scope="col">Contact</th><th scope="col">Notes</th></tr></thead>
-<tbody>${rows.map((row) => html`
-<tr>
-<td class="col-received"><div class="cell">${receivedText(row.created_at, { now })}</div></td>
-<td class="col-name"><a class="row-link tap" href="${requestHref(row)}">${row.name}</a></td>
-<td class="col-business"><div class="cell"><span class="strong">${row.business}</span><span class="sub">${row.business_type}</span></div></td>
-<td class="col-contact"><div class="contact">${contactLines(row)}</div></td>
-<td class="col-notes"><div class="cell">${notesText(row)}</div></td>
-</tr>`)}
-</tbody>
-</table></div>`;
+/**
+ * Everything about one request, in reading order: notes, the team email,
+ * then contact and request details. Shared by the inbox panel and the page.
+ */
+function requestSections(row) {
+  const item = (label, value, className = "") =>
+    html`<div><dt>${label}</dt><dd${raw(className ? ` class="${className}"` : "")}>${value}</dd></div>`;
+  const status = emailStatus(row);
+  return html`<div class="section"><h3 class="section-label">Notes</h3>${
+    row.message ? html`<p class="notes-full">${row.message}</p>` : html`<p class="muted">No notes</p>`
+  }</div>
+<div class="section"><h3 class="section-label">Email to the team</h3>${statusMark(status)}<p class="email-detail">${status.detail}</p></div>
+<div class="section"><h3 class="section-label">Contact</h3><dl class="details">
+${item("Name", row.name)}
+${item("Email", html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>`, "has-tap")}
+${row.phone
+    ? item("Phone", html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>`, "has-tap")
+    : item("Phone", "No phone", "muted")}
+</dl></div>
+<div class="section"><h3 class="section-label">Request</h3><dl class="details">
+${item("Business", row.business)}
+${item("Business type", row.business_type)}
+${item("Received", formatReceived(row.created_at, { withYear: true }))}
+${item("Request ID", html`<span class="mono">${row.id}</span>`)}
+</dl></div>`;
 }
 
-/** problem: "unconnected" when there is no database, "error" when it couldn't be read. */
-export function renderListPage({ user, rows = [], truncated = false, problem = null, now = new Date() }) {
+/** Wide screens: every request is a selectable row; the selected one opens beside the list. */
+function requestInbox(rows, selected, now) {
+  const selectedId = selected ? String(selected.id).toLowerCase() : null;
+  return html`<div class="inbox">
+<nav class="picks" aria-label="Requests"><ul>${rows.map((row) => {
+    const current = String(row.id).toLowerCase() === selectedId;
+    return html`
+<li><a class="pick" href="${selectHref(row)}"${raw(current ? ' aria-current="true"' : "")}>
+<span class="pick-top"><span class="pick-name">${row.name}</span><span class="pick-time">${formatReceived(row.created_at, { now })}</span></span>
+<span class="pick-sub">${row.business} · ${row.business_type}</span>
+<span class="pick-notes">${notesPreview(row.message, 90) ?? html`<span class="muted">No notes</span>`}</span>
+<span class="pick-email">Team email ${statusMark(emailStatus(row))}</span>
+</a></li>`;
+  })}
+</ul></nav>
+${selected
+    ? html`<section class="panel selected" aria-labelledby="selected-title">
+<div class="selected-head"><div><h2 id="selected-title">${selected.business}</h2><p class="lede">From ${selected.name} · ${formatReceived(selected.created_at, { withYear: true })}</p></div>
+<a class="button" href="${requestHref(selected)}">Open as page</a></div>
+${requestSections(selected)}
+</section>`
+    : ""}
+</div>`;
+}
+
+/**
+ * problem: "unconnected" when there is no database, "error" when it couldn't be read.
+ * selected: the request shown beside the list (defaults to the newest); missing: the asked-for one wasn't found.
+ */
+export function renderListPage({ user, rows = [], truncated = false, problem = null, now = new Date(), selected = null, missing = false }) {
   let content;
   if (problem === "unconnected") {
     content = notConnected;
@@ -328,7 +420,10 @@ export function renderListPage({ user, rows = [], truncated = false, problem = n
     const count = truncated
       ? html`<div class="note" role="status">Showing the newest ${rows.length}.</div>`
       : html`<p class="count">${rows.length} ${rows.length === 1 ? "request" : "requests"}</p>`;
-    content = html`${count}${requestCards(rows, now)}${requestTable(rows, now)}`;
+    const notFound = missing
+      ? html`<div class="note" role="status">That request wasn't found, so the newest one is open.</div>`
+      : "";
+    content = html`${notFound}${count}${requestCards(rows, now)}${requestInbox(rows, selected ?? rows[0], now)}`;
   }
 
   return page({
@@ -357,27 +452,13 @@ export function renderDetailPage({ user, row = null, problem = null }) {
     });
   }
 
-  const item = (label, value, className = "") =>
-    html`<div><dt>${label}</dt><dd${raw(className ? ` class="${className}"` : "")}>${value}</dd></div>`;
   return page({
     title: "Request",
     user,
     body: html`<div class="frame">
-<header class="page-head">${backLink}<h1>${row.business}</h1></header>
-<section class="panel" aria-labelledby="details-title">
-<div class="panel-head"><h2 id="details-title">Request details</h2></div>
-<dl class="details">
-${item("Name", row.name)}
-${item("Business", row.business)}
-${item("Business type", row.business_type)}
-${item("Email", html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>`, "has-tap")}
-${row.phone
-    ? item("Phone", html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>`, "has-tap")
-    : item("Phone", "No phone", "muted")}
-${item("Received", formatReceived(row.created_at, { withYear: true }))}
-${item("Request ID", html`<span class="mono">${row.id}</span>`)}
-${row.message ? item("Notes", row.message, "notes") : item("Notes", "No notes", "muted")}
-</dl>
+<header class="page-head">${backLink}<h1>${row.business}</h1><p class="lede">From ${row.name} · ${formatReceived(row.created_at, { withYear: true })}</p></header>
+<section class="panel" aria-label="Request">
+${requestSections(row)}
 </section>
 </div>`,
   });

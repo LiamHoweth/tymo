@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createAdminHandler } from "./admin-http.mjs";
-import { formatReceived, notesPreview } from "./admin-render.mjs";
+import { emailStatus, formatReceived, notesPreview } from "./admin-render.mjs";
 
 const devEnv = { NODE_ENV: "test" };
 const firstId = "0b5f1c9e-3c1a-4f7e-9d2b-6a8e4c2f1d30";
@@ -21,6 +21,10 @@ const rows = [
     email: "avery@example.test",
     phone: "(555) 010-2000 x12",
     message: "Winter league\nTuesdays & Thursdays",
+    email_status: "sent",
+    email_detail: null,
+    email_to: "team@example.test",
+    email_at: "2026-11-25T02:05:03.000Z",
   },
   {
     id: secondId,
@@ -228,18 +232,66 @@ test("lists requests newest first with every value escaped", async (t) => {
   assert.match(text, /Website requests Sent from the quote form on the Tymo website\. Times are Central \(CT\)\. 2 requests/);
   assert.match(text, /Tue, Nov 24(, 2026)? · 8:05 PM CT/);
   assert.match(text, /Sat, Jul 4(, 2026)? · 12:30 PM CT/);
-  assert.match(text, /Received Name Business Contact Notes/);
   assert.match(text, /<script>alert\(1\)<\/script> Sports facility/);
   assert.match(body, /href="mailto:avery@example\.test"/);
   assert.match(body, /href="tel:5550102000">\(555\) 010-2000 x12<\/a>/);
   assert.match(text, /jordan@example\.test No phone/);
   assert.match(text, /Winter league Tuesdays & Thursdays/);
   assert.match(text, /No notes/);
-  assert.match(body, new RegExp(`<a class="row-link tap" href="/admin/requests/${firstId}">Avery &quot;Ace&quot; Tester</a>`));
+  assert.match(body, new RegExp(`<a class="row-link" href="/admin/requests/${firstId}">Avery &quot;Ace&quot; Tester</a>`));
   assert.ok(body.indexOf(`/admin/requests/${firstId}`) < body.indexOf(`/admin/requests/${secondId}`), "keeps the store's newest-first order");
   assert.match(body, /<ul class="cards">/);
-  assert.match(body, /<th scope="col">Received<\/th>/);
+  // Wide screens: every request is a selectable row, the newest open beside the list.
+  assert.match(body, new RegExp(`<a class="pick" href="/admin\\?request=${firstId}" aria-current="true">`));
+  assert.match(body, new RegExp(`<a class="pick" href="/admin\\?request=${secondId}">`));
+  assert.match(text, /Team email Sent .*Team email Not recorded/);
+  assert.match(text, /Notes Winter league Tuesdays & Thursdays Email to the team Sent Sent to team@example\.test · Tue, Nov 24 · 8:05 PM CT\./);
   assert.doesNotMatch(text, /Showing the newest/);
+});
+
+test("selects any request with ?request= and reads its notes, time and email status", async (t) => {
+  const older = { ...rows[1], id: unknownId, name: "Older Request", message: "Line one\nLine two", email_status: "failed", email_detail: "status_422", email_to: "team@example.test" };
+  let fetchedById;
+  const base = await listen(t, {
+    list: async (limit) => rows.slice(0, limit),
+    get: async (id) => { fetchedById = id; return id === unknownId ? older : null; },
+  });
+  const cookie = await signIn(base);
+
+  const second = await get(base, `/admin?request=${secondId.toUpperCase()}`, cookie);
+  assert.equal(second.status, 200);
+  const secondBody = await second.text();
+  assert.match(secondBody, new RegExp(`<a class="pick" href="/admin\\?request=${secondId}" aria-current="true">`));
+  assert.doesNotMatch(secondBody, new RegExp(`request=${firstId}" aria-current`));
+  assert.match(visibleText(secondBody), /Example Studio From Jordan Example · Sat, Jul 4, 2026 · 12:30 PM CT Open as page Notes No notes Email to the team Not recorded/);
+  assert.match(secondBody, new RegExp(`<a class="button" href="/admin/requests/${secondId}">Open as page</a>`));
+
+  // Not in the newest 200: looked up by id, still shown in full.
+  const olderText = visibleText(await (await get(base, `/admin?request=${unknownId}`, cookie)).text());
+  assert.equal(fetchedById, unknownId);
+  assert.match(olderText, /Notes Line one Line two Email to the team Failed Resend refused it \(status 422\)\. It was going to team@example\.test\./);
+
+  for (const wanted of ["00000000-0000-4000-8000-000000000999", "not-a-uuid"]) {
+    const missingText = visibleText(await (await get(base, `/admin?request=${wanted}`, cookie)).text());
+    assert.match(missingText, /That request wasn't found, so the newest one is open\./, wanted);
+  }
+});
+
+test("describes every email outcome in words", () => {
+  const base = { email_to: "team@example.test", email_at: "2026-11-25T02:05:03.000Z" };
+  assert.deepEqual(
+    [
+      emailStatus({ ...base, email_status: "sent" }),
+      emailStatus({ ...base, email_status: "not_sent", email_detail: "no_api_key" }),
+      emailStatus({ email_status: "not_sent", email_detail: "no_inbox", email_to: null, email_at: base.email_at }),
+      emailStatus({ ...base, email_status: "failed", email_detail: "network" }),
+      emailStatus({ email_status: null }),
+    ].map(({ label, tone }) => `${label}:${tone}`),
+    ["Sent:ok", "Not sent:warn", "Not sent:warn", "Failed:danger", "Not recorded:muted"],
+  );
+  assert.match(emailStatus({ ...base, email_status: "not_sent", email_detail: "no_api_key" }).detail, /isn't set up yet, so this wasn't emailed to team@example\.test\. Add RESEND_API_KEY/);
+  assert.match(emailStatus({ email_status: "not_sent", email_detail: "no_inbox" }).detail, /Add TYMO_QUOTE_NOTIFY_TO/);
+  assert.match(emailStatus({ ...base, email_status: "failed", email_detail: "network" }).detail, /^Couldn't reach Resend\. It was going to team@example\.test\. Tried Tue, Nov 24 · 8:05 PM CT\.$/);
 });
 
 test("shows the 200 newest and the empty, unconnected and error states", async (t) => {
@@ -279,17 +331,20 @@ test("shows one request in full and a 404 for unknown or malformed ids", async (
   const body = await response.text();
   assert.doesNotMatch(body, /<script/i);
   assert.match(body, /<a class="back" href="\/admin">.*All requests<\/a><h1>&lt;script&gt;alert\(1\)&lt;\/script&gt;<\/h1>/);
-  assert.match(body, /<dd class="notes">Winter league\nTuesdays &amp; Thursdays<\/dd>/);
+  assert.match(body, /<p class="notes-full">Winter league\nTuesdays &amp; Thursdays<\/p>/);
   assert.match(body, /<a class="tap link" href="mailto:avery@example\.test">avery@example\.test<\/a>/);
   assert.match(body, /<a class="tap link" href="tel:5550102000">/);
   assert.match(body, /<a href="\/admin" aria-current="true">Website requests<\/a>/);
   const text = visibleText(body);
-  assert.match(text, /Name Avery "Ace" Tester Business <script>alert\(1\)<\/script> Business type Sports facility/);
-  assert.match(text, new RegExp(`Received Tue, Nov 24, 2026 · 8:05 PM CT Request ID ${firstId} Notes Winter league Tuesdays & Thursdays`));
+  assert.match(text, /From Avery "Ace" Tester · Tue, Nov 24, 2026 · 8:05 PM CT Notes Winter league Tuesdays & Thursdays/);
+  assert.match(text, /Email to the team Sent Sent to team@example\.test · Tue, Nov 24 · 8:05 PM CT\./);
+  assert.match(text, /Contact Name Avery "Ace" Tester Email avery@example\.test Phone \(555\) 010-2000 x12/);
+  assert.match(text, new RegExp(`Request Business <script>alert\\(1\\)</script> Business type Sports facility Received Tue, Nov 24, 2026 · 8:05 PM CT Request ID ${firstId}`));
 
   const second = visibleText(await (await get(base, `/admin/requests/${secondId.toUpperCase()}`, cookie)).text());
   assert.match(second, /Phone No phone/);
   assert.match(second, /Notes No notes/);
+  assert.match(second, /Email to the team Not recorded This request came in before email tracking was added\./);
 
   for (const path of [`/admin/requests/${unknownId}`, "/admin/requests/not-a-uuid", `/admin/requests/${firstId}/extra`]) {
     const missing = await get(base, path, cookie);

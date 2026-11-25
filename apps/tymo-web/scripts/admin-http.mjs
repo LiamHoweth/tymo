@@ -25,6 +25,7 @@ const windowMs = 10 * 60 * 1000;
 const attemptsPerWindow = 10;
 const maxClientKeys = 4096;
 const requestIdPath = /^\/admin\/requests\/([\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12})$/i;
+const uuidPattern = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 const securityHeaders = {
   "cache-control": "no-store",
   "x-robots-tag": "noindex",
@@ -212,10 +213,26 @@ export function createAdminHandler(store, {
       send(request, response, 503, renderListPage({ user, problem: "error" }));
       return;
     }
+    const shown = rows.slice(0, listLimit);
+    // ?request=<id> picks the request shown beside the list; the newest one is the default.
+    const wanted = new URL(request.url ?? "/admin", "http://admin.invalid").searchParams.get("request")?.trim().toLowerCase();
+    let selected = null;
+    if (wanted && uuidPattern.test(wanted)) {
+      selected = shown.find((row) => String(row.id).toLowerCase() === wanted) ?? null;
+      if (!selected) {
+        try {
+          selected = await findRequest(wanted);
+        } catch {
+          console.warn("[admin] Could not load a quote request.");
+        }
+      }
+    }
     send(request, response, 200, renderListPage({
       user,
-      rows: rows.slice(0, listLimit),
+      rows: shown,
       truncated: rows.length > listLimit,
+      selected,
+      missing: Boolean(wanted) && !selected,
     }));
   }
 

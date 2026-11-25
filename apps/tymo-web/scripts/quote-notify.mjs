@@ -126,7 +126,7 @@ export function createQuoteNotifier(env = process.env, fetchImpl = fetch) {
     if (!env.RESEND_API_KEY) {
       if (!warnedNoKey) console.warn("[quotes] Request emails are off: set RESEND_API_KEY and EMAIL_FROM to send them.");
       warnedNoKey = true;
-      return { sent: false, reason: "no_api_key" };
+      return { sent: false, reason: "no_api_key", to };
     }
     const email = renderQuoteEmail(quote, { adminUrl });
     try {
@@ -149,12 +149,26 @@ export function createQuoteNotifier(env = process.env, fetchImpl = fetch) {
       });
       if (!response.ok) {
         console.warn(`[quotes] Request email failed: Resend answered ${response.status}.`);
-        return { sent: false, reason: `status_${response.status}` };
+        return { sent: false, reason: `status_${response.status}`, to };
       }
-      return { sent: true };
+      return { sent: true, to };
     } catch {
       console.warn("[quotes] Request email failed: could not reach Resend.");
-      return { sent: false, reason: "network" };
+      return { sent: false, reason: "network", to };
     }
   };
+}
+
+/**
+ * What the admin page shows for a request's email, from notify's outcome
+ * (or { sent: false, reason: "no_inbox" } when TYMO_QUOTE_NOTIFY_TO is empty).
+ * status: "sent" | "not_sent" (email not set up) | "failed".
+ */
+export function emailRecord(outcome) {
+  const to = (outcome?.to ?? []).join(", ").slice(0, 500) || null;
+  if (outcome?.sent) return { status: "sent", detail: null, to };
+  if (outcome?.reason === "no_api_key" || outcome?.reason === "no_inbox") {
+    return { status: "not_sent", detail: outcome.reason, to };
+  }
+  return { status: "failed", detail: String(outcome?.reason ?? "unknown").slice(0, 200), to };
 }

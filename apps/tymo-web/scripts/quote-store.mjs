@@ -14,7 +14,15 @@ const schema = `
   );
   CREATE INDEX IF NOT EXISTS tymo_quote_requests_received
     ON public.tymo_quote_requests (created_at DESC, id DESC);
+  -- The request email's outcome (see quote-notify.mjs emailRecord): null until recorded.
+  ALTER TABLE public.tymo_quote_requests
+    ADD COLUMN IF NOT EXISTS email_status varchar(20),
+    ADD COLUMN IF NOT EXISTS email_detail varchar(200),
+    ADD COLUMN IF NOT EXISTS email_to varchar(500),
+    ADD COLUMN IF NOT EXISTS email_at timestamptz;
 `;
+
+const columns = "id, created_at, name, business, business_type, email, phone, message, email_status, email_detail, email_to, email_at";
 
 async function createSchema(pool) {
   const client = await pool.connect();
@@ -71,20 +79,25 @@ export function openQuoteStore(connectionString) {
     },
     async list(limit) {
       const result = await pool.query(
-        `SELECT id, created_at, name, business, business_type, email, phone, message
-         FROM public.tymo_quote_requests ORDER BY created_at DESC, id DESC LIMIT $1`,
+        `SELECT ${columns} FROM public.tymo_quote_requests ORDER BY created_at DESC, id DESC LIMIT $1`,
         [limit],
       );
       return result.rows;
     },
     /** One request by id, or null. */
     async get(id) {
-      const result = await pool.query(
-        `SELECT id, created_at, name, business, business_type, email, phone, message
-         FROM public.tymo_quote_requests WHERE id = $1`,
-        [id],
-      );
+      const result = await pool.query(`SELECT ${columns} FROM public.tymo_quote_requests WHERE id = $1`, [id]);
       return result.rows[0] ?? null;
+    },
+    /** Saves how the request email went: { status, detail, to } from emailRecord, stamped now. */
+    async recordEmail(id, { status, detail, to }) {
+      await initialize();
+      await pool.query(
+        `UPDATE public.tymo_quote_requests
+         SET email_status = $2, email_detail = $3, email_to = $4, email_at = now()
+         WHERE id = $1`,
+        [id, status, detail, to],
+      );
     },
     close: () => pool.end(),
   };

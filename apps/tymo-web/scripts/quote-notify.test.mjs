@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import { test } from "node:test";
 import { createQuoteHandler } from "./quote-http.mjs";
-import { createQuoteNotifier, formatReceived, renderQuoteEmail } from "./quote-notify.mjs";
+import { createQuoteNotifier, emailRecord, formatReceived, renderQuoteEmail } from "./quote-notify.mjs";
 
 const quote = {
   id: "e7681b05-bade-4151-8212-7c1cad879a38",
@@ -60,7 +60,7 @@ test("is off without TYMO_QUOTE_NOTIFY_TO, and waits for a Resend key", async ()
   assert.equal(createQuoteNotifier({}), null);
   assert.equal(createQuoteNotifier({ TYMO_QUOTE_NOTIFY_TO: "not-an-email" }), null);
   const notify = createQuoteNotifier({ TYMO_QUOTE_NOTIFY_TO: "team@example.test" }, () => assert.fail("no request without a key"));
-  assert.deepEqual(await notify(quote), { sent: false, reason: "no_api_key" });
+  assert.deepEqual(await notify(quote), { sent: false, reason: "no_api_key", to: ["team@example.test"] });
 });
 
 test("sends through Resend to every inbox with replies going to the requester", async () => {
@@ -76,7 +76,7 @@ test("sends through Resend to every inbox with replies going to the requester", 
       return new Response(JSON.stringify({ id: "email_1" }), { status: 200 });
     },
   );
-  assert.deepEqual(await notify(quote), { sent: true });
+  assert.deepEqual(await notify(quote), { sent: true, to: ["one@example.test", "two@example.test"] });
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://api.resend.com/emails");
   assert.equal(calls[0].init.headers.Authorization, "Bearer test-key");
@@ -92,11 +92,25 @@ test("sends through Resend to every inbox with replies going to the requester", 
 test("never throws when Resend fails or is unreachable", async () => {
   const env = { TYMO_QUOTE_NOTIFY_TO: "team@example.test", RESEND_API_KEY: "test-key", EMAIL_FROM: "Tymo <hello@example.test>" };
   const refused = createQuoteNotifier(env, async () => new Response("{}", { status: 422 }));
-  assert.deepEqual(await refused(quote), { sent: false, reason: "status_422" });
+  assert.deepEqual(await refused(quote), { sent: false, reason: "status_422", to: ["team@example.test"] });
   const offline = createQuoteNotifier(env, async () => {
     throw new TypeError("fetch failed");
   });
-  assert.deepEqual(await offline(quote), { sent: false, reason: "network" });
+  assert.deepEqual(await offline(quote), { sent: false, reason: "network", to: ["team@example.test"] });
+});
+
+test("turns each outcome into the record the admin page reads", () => {
+  assert.deepEqual(emailRecord({ sent: true, to: ["one@example.test", "two@example.test"] }), {
+    status: "sent", detail: null, to: "one@example.test, two@example.test",
+  });
+  assert.deepEqual(emailRecord({ sent: false, reason: "no_api_key", to: ["team@example.test"] }), {
+    status: "not_sent", detail: "no_api_key", to: "team@example.test",
+  });
+  assert.deepEqual(emailRecord({ sent: false, reason: "no_inbox" }), { status: "not_sent", detail: "no_inbox", to: null });
+  assert.deepEqual(emailRecord({ sent: false, reason: "status_500", to: ["team@example.test"] }), {
+    status: "failed", detail: "status_500", to: "team@example.test",
+  });
+  assert.deepEqual(emailRecord(undefined), { status: "failed", detail: "unknown", to: null });
 });
 
 async function listen(t, store, notify) {
@@ -127,6 +141,33 @@ test("emails each newly saved request once, after the visitor gets their answer"
   assert.equal((await submit(base)).status, 201);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(emailed.length, 1);
+});
+
+test("records each request's email outcome against its id", async (t) => {
+  const saved = [];
+  const recorded = [];
+  const store = {
+    save: async (q) => { saved.push(q.id); return true; },
+    recordEmail: async (id, record) => { recorded.push({ id, ...record }); },
+  };
+  const sent = await listen(t, store, async () => ({ sent: true, to: ["team@example.test"] }));
+  assert.equal((await submit(sent)).status, 201);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.match(saved[0], /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/, "a request without an id gets one");
+  assert.deepEqual(recorded, [{ id: saved[0], status: "sent", detail: null, to: "team@example.test" }]);
+
+  // No inbox configured: still recorded, so the admin page can say why nothing was sent.
+  const quiet = await listen(t, store, null);
+  assert.equal((await submit(quiet)).status, 201);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(recorded[1], { id: saved[1], status: "not_sent", detail: "no_inbox", to: null });
+
+  const warn = t.mock.method(console, "warn", () => {});
+  const brokenStore = { save: async () => true, recordEmail: async () => { throw new Error("db down"); } };
+  const broken = await listen(t, brokenStore, async () => ({ sent: true, to: [] }));
+  assert.equal((await submit(broken)).status, 201);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(warn.mock.calls.map((call) => call.arguments), [["[quotes] Could not record a request email's result."]]);
 });
 
 test("does not email spam traps or invalid requests, and a failing email still answers 201", async (t) => {
