@@ -3,6 +3,7 @@ import { readFile, realpath } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAdminHandler } from "./admin-http.mjs";
+import { createIntakeHandler, renderIntakePage } from "./intake-http.mjs";
 import { createQuoteHandler, renderQuotePage } from "./quote-http.mjs";
 import { openQuoteStore } from "./quote-store.mjs";
 
@@ -12,11 +13,18 @@ const host = process.argv[3] ?? "0.0.0.0";
 const databaseUrl = process.env.TYMO_LEADS_DATABASE_URL;
 const quoteStore = databaseUrl ? openQuoteStore(databaseUrl) : null;
 const handleQuote = createQuoteHandler(quoteStore, Boolean(process.env.RAILWAY_ENVIRONMENT_ID));
+const handleIntake = createIntakeHandler(quoteStore, Boolean(process.env.RAILWAY_ENVIRONMENT_ID));
 const handleAdmin = createAdminHandler(quoteStore, { behindRailway: Boolean(process.env.RAILWAY_ENVIRONMENT_ID) });
 const publicPages = new Set([
-  "/index.html", "/fonts.css", "/style.css", "/hero.css", "/product.css", "/lower.css",
+  "/index.html", "/company-intake.html", "/faq.html",
+  "/fonts.css", "/style.css", "/hero.css", "/product.css", "/lower.css", "/pages.css",
   "/hero.js", "/product.js", "/demo.js", "/strip.js",
-  "/assets/barlowcondensed-LICENSE.txt", "/assets/dmsans-LICENSE.txt",
+  "/assets/barlowcondensed-LICENSE.txt", "/assets/dmsans-LICENSE.txt", "/assets/chivo-LICENSE.txt",
+]);
+const redirects = new Map([
+  ["/faq", "/faq.html"],
+  ["/company-intake", "/company-intake.html"],
+  ["/demo", "/company-intake.html"],
 ]);
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -25,6 +33,7 @@ const contentTypes = {
   ".jpg": "image/jpeg",
   ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
+  ".webp": "image/webp",
 };
 
 const server = createServer({ requestTimeout: 20_000, headersTimeout: 10_000, connectionsCheckingInterval: 5_000 }, async (req, res) => {
@@ -41,6 +50,10 @@ const server = createServer({ requestTimeout: 20_000, headersTimeout: 10_000, co
     await handleQuote(req, res, pathname);
     return;
   }
+  if (pathname === "/api/intake") {
+    await handleIntake(req, res);
+    return;
+  }
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     await handleAdmin(req, res, pathname);
     return;
@@ -49,9 +62,13 @@ const server = createServer({ requestTimeout: 20_000, headersTimeout: 10_000, co
     res.writeHead(405, { allow: "GET, HEAD" }).end("Method not allowed");
     return;
   }
+  if (redirects.has(pathname)) {
+    res.writeHead(301, { location: redirects.get(pathname) + (queryStart === -1 ? "" : target.slice(queryStart)) }).end();
+    return;
+  }
   if (pathname === "/") pathname = "/index.html";
 
-  const isPublicAsset = /^\/assets\/[a-zA-Z0-9][a-zA-Z0-9_-]*\.(jpg|ttf)$/.test(pathname);
+  const isPublicAsset = /^\/assets\/[a-zA-Z0-9][a-zA-Z0-9_-]*\.(jpg|ttf|webp)$/.test(pathname);
   if (!publicPages.has(pathname) && !isPublicAsset) {
     res.writeHead(404).end("Not found");
     return;
@@ -64,16 +81,18 @@ const server = createServer({ requestTimeout: 20_000, headersTimeout: 10_000, co
       return;
     }
     const source = await readFile(file);
+    const query = new URLSearchParams(queryStart === -1 ? "" : target.slice(queryStart + 1));
     const isQuotePage = pathname === "/index.html";
-    const state = isQuotePage && queryStart !== -1
-      ? new URLSearchParams(target.slice(queryStart + 1)).get("quote")
-      : null;
-    const body = isQuotePage ? renderQuotePage(source, state) : source;
+    const isIntakePage = pathname === "/company-intake.html";
+    let body = source;
+    if (isQuotePage) body = renderQuotePage(source, query.get("quote"));
+    if (isIntakePage) body = renderIntakePage(source, query.get("intake"));
     res.writeHead(200, {
       "content-type": contentTypes[extname(file)],
       "content-length": body.length,
       "x-content-type-options": "nosniff",
-      ...(isQuotePage ? { "cache-control": "no-store" } : {}),
+      // These pages carry a fresh retry id on every load.
+      ...(isQuotePage || isIntakePage ? { "cache-control": "no-store" } : {}),
     }).end(req.method === "HEAD" ? undefined : body);
   } catch {
     res.writeHead(404).end("Not found");

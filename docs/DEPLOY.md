@@ -1,9 +1,10 @@
 # Deploying Tymo
 
 The deployment uses two Railway projects in Erjon's workspace. **Tymo**
-hosts the marketing site, quote intake, and its private lead database.
-**Advance Soccer Complex** hosts the public facility proposal and Redbud
-sample booking flow, with its own private staff app, platform and Postgres.
+hosts the marketing site, its company and quote intake, and its private
+lead database. **Advance Soccer Complex** hosts the public facility
+proposal and Redbud sample booking flow, with its own private staff app,
+platform and Postgres.
 
 | Railway service | Source root | Build | Start | Readiness |
 | --- | --- | --- | --- | --- |
@@ -57,12 +58,16 @@ services. Keep demo staff, platform services and both databases private.
 A real facility needs its own configuration with `TYMO_DEMO` and
 `TYMO_SEED_DEMO` unset.
 
-### Review quote requests
+### Review website requests
 
-The marketing site uses `NODE_ENV=production` and initializes its quote
-table at startup. `POST /api/quote` saves inquiries in the **Tymo**
-project's database and confirms receipt on the site. Operators with Railway
-SSH access can review the most recent requests from the `tymo` service shell.
+The marketing site uses `NODE_ENV=production` and initializes its request
+table at startup. Two forms save to it in the **Tymo** project's database:
+the company intake ("Book a demo" on `/company-intake.html`, posted to
+`POST /api/intake`; it replaced the former Formspree form) and the older
+quote form (`POST /api/quote`). Each row's `kind` is `company_intake` or
+`quote`, and the site confirms receipt either way. Startup adds the intake
+columns without touching existing rows. Operators with Railway SSH access
+can review the most recent requests from the `tymo` service shell.
 
 ```bash
 npm run quotes:list -w @tymo/tymo-web -- 20
@@ -76,17 +81,20 @@ service. Production admin sign-in stays off until all three are set; the
 `admin1` / `admin1` sign-in only exists outside production. Changing the
 password or secret signs everyone out.
 
-Each new request is also emailed to the inboxes in `TYMO_QUOTE_NOTIFY_TO`
-(name, business, type, email, phone, notes, received time, and a link to
-`/admin`). Replying answers the requester directly. Sending needs
-`RESEND_API_KEY` and `EMAIL_FROM` on the `tymo` service; without them the
-request is still saved and the service logs that request emails are off.
-A retried form is never emailed twice, and a failed email never fails the
+Each new request is also emailed to the inboxes in `TYMO_QUOTE_NOTIFY_TO`,
+with a link to `/admin`. A demo request email ("New demo request:
+<business>") lists the name, business, email, website and received time,
+then each written answer under its question. A quote email lists the name,
+business, type, email, phone and notes. Replying answers the requester
+directly. Sending needs `RESEND_API_KEY` and `EMAIL_FROM` on the `tymo`
+service; without them the request is still saved, the admin page shows why
+it wasn't emailed, and the service logs that request emails are off. A
+retried form is never emailed twice, and a failed email never fails the
 request.
 
-Only share quote records with authorized staff. Keep personal information
+Only share request records with authorized staff. Keep personal information
 out of issues, logs, fixtures and public analytics. Review and reply from
-the approved business inbox while the quote workflow is handled manually.
+the approved business inbox while requests are handled manually.
 
 ### Facility proposal profile
 
@@ -119,10 +127,10 @@ and service. Check the deployed commit and the configured readiness path.
 Follow the proposal's sample booking link to `/book/redbud` and verify that
 sample availability opens in preview mode. Check the official rental link
 against the facility's public website. For workflow changes, exercise full
-fake checkout and staff approval locally with `npm run dev`. For the quote
-flow, verify `/api/health`, submit an authorized synthetic inquiry, confirm
-the exact saved record through the operator workflow, and remove that test
-record afterward.
+fake checkout and staff approval locally with `npm run dev`. For the website
+request flow, verify `/api/health`, submit an authorized synthetic demo
+request from `/company-intake.html`, confirm the exact saved record through
+the operator workflow, and remove that test record afterward.
 
 ## Switching on Stripe test mode
 

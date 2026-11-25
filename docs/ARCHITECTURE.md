@@ -24,7 +24,7 @@ company's (facility's) website and services. Logic lives in packages.
 
 | Path | What it is |
 | --- | --- |
-| `apps/tymo-web/` | Marketing and quote intake (`POST /api/quote`) with its own private Postgres database |
+| `apps/tymo-web/` | Marketing, company intake (`POST /api/intake`) and quote intake (`POST /api/quote`) with its own private Postgres database |
 | `apps/tymo-services/` | Readiness (`/api/health`), Stripe webhook (`/api/stripe/webhook`), sweep (`/api/cron/tick` + optional in-process scheduler), dev outbox |
 | `apps/company-web/` | Facility landing (`/facility/[slug]`), renter booking flow and private booking pages (`/book/[slug]`) |
 | `apps/company-services/` | Staff app (`/staff`), staff sign-in, owner Stripe Connect onboarding (`/api/stripe/connect/*`) |

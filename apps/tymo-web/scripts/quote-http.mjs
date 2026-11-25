@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { isIP } from "node:net";
-import { createQuoteNotifier, emailRecord } from "./quote-notify.mjs";
+import { FormRequestError, createRateLimiter, formResult, mediaType, readBody, sameOrigin, sendJson } from "./form-http.mjs";
+import { createQuoteNotifier, emailAndRecord } from "./quote-notify.mjs";
 
 const bodyLimit = 32 * 1024;
-const windowMs = 10 * 60 * 1000;
-const attemptsPerWindow = 10;
-const maxClientKeys = 4096;
 const allowedFields = new Set(["name", "business", "business_type", "email", "phone", "message", "_gotcha", "_request_id"]);
 const uuidV4 = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i;
 const businessTypes = new Set([
@@ -19,54 +16,21 @@ const businessTypes = new Set([
   "Another business",
 ]);
 const unavailable = "Quote requests are temporarily unavailable. Please try again soon.";
+const redirects = { sent: "/?quote=sent#quote", error: "/?quote=error#quote" };
 const nativeStatus = new Map([
   ["sent", "Thanks. We received your quote request."],
   ["error", "Your quote request could not be submitted. Check your details and try again."],
 ]);
 
-class QuoteRequestError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-
-function sameOrigin(request, behindRailway) {
-  if (request.headers["sec-fetch-site"] === "cross-site") return false;
-  const origin = request.headers.origin;
-  if (!origin) return true;
-  const host = (behindRailway && request.headers["x-forwarded-host"]) || request.headers.host;
-  try {
-    return origin === new URL(`${behindRailway ? "https" : "http"}://${host}`).origin;
-  } catch {
-    return false;
-  }
-}
-
 async function readForm(request) {
-  const mediaType = request.headers["content-type"]?.split(";", 1)[0].trim().toLowerCase();
-  if (mediaType !== "application/x-www-form-urlencoded") {
-    throw new QuoteRequestError(415, "Submit your request using the quote form.");
+  if (mediaType(request) !== "application/x-www-form-urlencoded") {
+    throw new FormRequestError(415, "Submit your request using the quote form.");
   }
-
-  let size = 0;
-  const chunks = [];
-  if (Number(request.headers["content-length"]) > bodyLimit) {
-    throw new QuoteRequestError(413, "Your request is too large. Shorten your booking notes and try again.");
-  }
-  for await (const chunk of request.iterator({ destroyOnReturn: false })) {
-    size += chunk.length;
-    if (size > bodyLimit) {
-      throw new QuoteRequestError(413, "Your request is too large. Shorten your booking notes and try again.");
-    }
-    chunks.push(chunk);
-  }
-
-  const encoded = Buffer.concat(chunks, size).toString("utf8");
+  const body = await readBody(request, bodyLimit, "Your request is too large. Shorten your booking notes and try again.");
   const form = new Map();
-  for (const [key, value] of new URLSearchParams(encoded)) {
+  for (const [key, value] of new URLSearchParams(body.toString("utf8"))) {
     if (!allowedFields.has(key) || form.has(key)) {
-      throw new QuoteRequestError(400, "The request has an invalid form field. Reload and try again.");
+      throw new FormRequestError(400, "The request has an invalid form field. Reload and try again.");
     }
     form.set(key, value);
   }
@@ -77,7 +41,7 @@ function validateQuote(form) {
   const read = (key, limit) => {
     const value = (form.get(key) ?? "").trim();
     if (value.length > limit || /[\u0000-\u001f\u007f]/u.test(value)) {
-      throw new QuoteRequestError(400, "Check the length and format of your contact details.");
+      throw new FormRequestError(400, "Check the length and format of your contact details.");
     }
     return value;
   };
@@ -91,44 +55,21 @@ function validateQuote(form) {
   const message = (form.get("message") ?? "").replace(/\r\n?/g, "\n").trim();
 
   if (!name || !business || !businessTypes.has(businessType)) {
-    throw new QuoteRequestError(400, "Enter your name and business name, and choose a business type.");
+    throw new FormRequestError(400, "Enter your name and business name, and choose a business type.");
   }
   if (!/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/u.test(email)) {
-    throw new QuoteRequestError(400, "Enter a valid email address so we can follow up.");
+    throw new FormRequestError(400, "Enter a valid email address so we can follow up.");
   }
   if (phone && (!/^\+?[\d ().#x-]+$/i.test(phone) || phone.replace(/\D/g, "").length < 7)) {
-    throw new QuoteRequestError(400, "Enter a valid phone number or leave it blank.");
+    throw new FormRequestError(400, "Enter a valid phone number or leave it blank.");
   }
   if (message.length > 2000 || /[\u0000-\u0008\u000b-\u001f\u007f]/u.test(message)) {
-    throw new QuoteRequestError(400, "Enter up to 2,000 characters in your booking notes.");
+    throw new FormRequestError(400, "Enter up to 2,000 characters in your booking notes.");
   }
   if (id && !uuidV4.test(id)) {
-    throw new QuoteRequestError(400, "Reload the quote form and try again.");
+    throw new FormRequestError(400, "Reload the quote form and try again.");
   }
   return { id, name, business, businessType, email, phone: phone || null, message: message || null };
-}
-
-function json(response, status, body, extraHeaders = {}, head = false) {
-  response.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    "x-content-type-options": "nosniff",
-    ...extraHeaders,
-  }).end(head ? undefined : JSON.stringify(body));
-}
-
-function quoteResult(request, response, status, body, extraHeaders = {}) {
-  const accept = request.headers.accept?.toLowerCase() ?? "";
-  const headers = request.complete ? extraHeaders : { ...extraHeaders, connection: "close" };
-  if (accept.includes("text/html") && !accept.includes("application/json")) {
-    response.writeHead(303, {
-      ...headers,
-      "cache-control": "no-store",
-      location: `/?quote=${body.ok ? "sent" : "error"}#quote`,
-    }).end();
-    return;
-  }
-  json(response, status, body, headers);
 }
 
 /** Give each form a unique retry identifier and render any native form status. */
@@ -145,91 +86,64 @@ export function renderQuotePage(body, state) {
   ));
 }
 
-/** Sends the request email, then records how it went for the admin page. Never throws. */
-async function emailAndRecord(store, notify, quote) {
-  try {
-    const outcome = notify ? await notify(quote) : { sent: false, reason: "no_inbox" };
-    if (typeof store.recordEmail === "function") await store.recordEmail(quote.id, emailRecord(outcome));
-  } catch {
-    console.warn("[quotes] Could not record a request email's result.");
-  }
-}
-
 /** `notify(quote)` emails each newly saved request (see quote-notify.mjs); null turns emails off. */
 export function createQuoteHandler(store, behindRailway = false, notify = createQuoteNotifier()) {
-  const attempts = new Map();
-  let windowEnd = 0;
-
-  function retryAfter(request) {
-    const now = Date.now();
-    if (now >= windowEnd) {
-      attempts.clear();
-      windowEnd = now + windowMs;
-    }
-    const edgeIp = behindRailway && request.headers["x-real-ip"];
-    const key = typeof edgeIp === "string" && isIP(edgeIp) ? edgeIp : request.socket.remoteAddress;
-    const count = attempts.get(key) ?? 0;
-    if (count >= attemptsPerWindow || (count === 0 && attempts.size >= maxClientKeys)) {
-      return Math.ceil((windowEnd - now) / 1000);
-    }
-    attempts.set(key, count + 1);
-    return 0;
-  }
+  const retryAfter = createRateLimiter(behindRailway);
 
   return async function handleQuote(request, response, pathname) {
     const head = request.method === "HEAD";
     if (pathname === "/api/health") {
       if (request.method !== "GET" && !head) {
-        json(response, 405, { status: "unavailable" }, { allow: "GET, HEAD" });
+        sendJson(response, 405, { status: "unavailable" }, { allow: "GET, HEAD" });
         return;
       }
       try {
         if (!store) throw new Error("Database unavailable");
         await store.ready();
-        json(response, 200, { status: "ok" }, {}, head);
+        sendJson(response, 200, { status: "ok" }, {}, head);
       } catch {
-        json(response, 503, { status: "unavailable" }, {}, head);
+        sendJson(response, 503, { status: "unavailable" }, {}, head);
       }
       return;
     }
 
     if (request.method !== "POST") {
-      json(response, 405, { ok: false, message: "Submit your request using the quote form." }, { allow: "POST" }, head);
+      sendJson(response, 405, { ok: false, message: "Submit your request using the quote form." }, { allow: "POST" }, head);
       return;
     }
+    const quoteResult = (status, body, extraHeaders = {}) =>
+      formResult(request, response, status, body, extraHeaders, redirects);
     if (!sameOrigin(request, behindRailway)) {
-      quoteResult(request, response, 403, { ok: false, message: "Submit your request from the Tymo website." });
+      quoteResult(403, { ok: false, message: "Submit your request from the Tymo website." });
       return;
     }
     const waitSeconds = retryAfter(request);
     if (waitSeconds) {
-      quoteResult(request, response, 429, { ok: false, message: "Too many requests. Please wait and try again." }, {
-        "retry-after": waitSeconds,
-      });
+      quoteResult(429, { ok: false, message: "Too many requests. Please wait and try again." }, { "retry-after": waitSeconds });
       return;
     }
     try {
       const form = await readForm(request);
       if (form.get("_gotcha")?.trim()) {
-        quoteResult(request, response, 201, { ok: true });
+        quoteResult(201, { ok: true });
         return;
       }
       const quote = validateQuote(form);
-      if (!store) throw new QuoteRequestError(503, unavailable);
+      if (!store) throw new FormRequestError(503, unavailable);
       // A fixed id lets the email's outcome be recorded against this request.
       quote.id ??= randomUUID();
       const isNew = await store.save(quote);
-      quoteResult(request, response, 201, { ok: true });
+      quoteResult(201, { ok: true });
       // A retried form (same request id) is not emailed twice. The email never delays or fails the response.
       if (isNew !== false) void emailAndRecord(store, notify, quote);
     } catch (error) {
       if (response.destroyed) return;
-      if (error instanceof QuoteRequestError) {
-        quoteResult(request, response, error.status, { ok: false, message: error.message });
+      if (error instanceof FormRequestError) {
+        quoteResult(error.status, { ok: false, message: error.message });
         return;
       }
       console.warn("[quotes] Could not complete a quote request.");
-      quoteResult(request, response, 503, { ok: false, message: unavailable });
+      quoteResult(503, { ok: false, message: unavailable });
     }
   };
 }
