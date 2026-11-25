@@ -1,43 +1,53 @@
-const quoteForm = document.querySelector('#quote-form');
-const quoteButton = quoteForm.querySelector('button[type="submit"]');
-const quoteRequestId = quoteForm.elements.namedItem('_request_id');
-const quoteStatus = document.querySelector('#quote-status');
-const quoteFailure = 'We couldn’t confirm your request. Please try again.';
+const companyForm = document.querySelector('#company-form');
+const contactKey = 'tymo-demo-contact';
+const contactFields = ['name', 'business', 'email'];
 
-function showQuoteStatus(state, message) {
-  quoteStatus.dataset.state = state;
-  quoteStatus.hidden = false;
-  quoteStatus.textContent = message;
-}
-
-quoteForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (quoteButton.disabled) return;
-
-  quoteButton.disabled = true;
-  showQuoteStatus('pending', 'Sending your quote request…');
-
+function restoreDemoContact(form) {
+  if (location.hash !== '#from-demo') return;
   try {
-    const response = await fetch(quoteForm.action, {
-      method: 'POST',
-      body: new URLSearchParams(new FormData(quoteForm)),
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout?.(15_000),
-    });
-    const result = await response.json();
-
-    if (response.ok && result?.ok === true) {
-      quoteForm.reset();
-      quoteRequestId.defaultValue = globalThis.crypto?.randomUUID?.() ?? '';
-      showQuoteStatus('sent', 'Thanks. We received your quote request and will follow up by email.');
-    } else {
-      const message = typeof result?.message === 'string' ? result.message : quoteFailure;
-      showQuoteStatus('error', message);
+    const contact = JSON.parse(sessionStorage.getItem(contactKey));
+    for (const name of contactFields) {
+      if (typeof contact?.[name] === 'string') form.elements.namedItem(name).value = contact[name];
     }
   } catch {
-    showQuoteStatus('error', quoteFailure);
-  } finally {
-    quoteButton.disabled = false;
-    quoteStatus.focus();
+    // The intake also works when browser storage is unavailable.
   }
-});
+}
+
+function submitForm(form, success) {
+  const button = form.querySelector('button[type="submit"]');
+  const status = form.querySelector('[data-form-status]');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (button.disabled) return;
+    const data = new FormData(form);
+    button.disabled = true;
+    status.hidden = false;
+    status.textContent = 'Sending your request…';
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST', body: data, headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error('Submission was not confirmed');
+    } catch {
+      status.textContent = 'We couldn’t confirm delivery. Your answers are still here. Please try again.';
+      button.disabled = false;
+      return;
+    }
+
+    try {
+      sessionStorage.removeItem(contactKey);
+    } catch {
+      // Contact carry-over is optional. The submission already succeeded.
+    }
+    form.reset();
+    form.hidden = true;
+    success.hidden = false;
+    success.focus();
+  });
+}
+
+if (companyForm) {
+  restoreDemoContact(companyForm);
+  submitForm(companyForm, document.querySelector('#company-success'));
+}

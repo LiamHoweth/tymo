@@ -49,3 +49,11 @@
 }
 
 
+@font-face {
+  font-family: "Chivo";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("assets/chivo-bold-italic.ttf") format("truetype");
+  unicode-range: U+006D, U+006F, U+0074, U+0079;
+}
