@@ -38,13 +38,14 @@ in Railway variables. `.env.example` lists their names for local development.
 | `TYMO_SERVICES_URL` | Core platform base URL, currently `http://tymo-services.railway.internal:8080` |
 | `TYMO_WEB_URL` | Public URL of the Tymo website |
 | `NEXT_PUBLIC_TYMO_WEB_URL` | Company website only, at build time: "Bookings by Tymo" footer link |
-| `SESSION_SECRET` | Company website and Tymo services. Generate a private random value for signing checkout state and the admin console cookie |
+| `SESSION_SECRET` | Company website, Tymo services and the marketing service. Generate a private random value for signing checkout state and the admin console cookies |
 | `CRON_SECRET` | Tymo services only. Generate a private random value to protect `/api/cron/tick` |
 | `TYMO_REQUEST_COPY_TO` | Company website. Comma-separated inboxes that get a copy of every new booking request, with a link to the admin console (`TYMO_SERVICES_URL` must be its public URL). Delivery needs `RESEND_API_KEY` |
-| `TYMO_ADMIN_USER`, `TYMO_ADMIN_PASSWORD` | Tymo services only. Sign-in for the read-only admin console at `/admin`. Required in production along with `SESSION_SECRET`; otherwise admin sign-in is off |
+| `TYMO_ADMIN_USER`, `TYMO_ADMIN_PASSWORD` | Tymo services and the marketing service. Sign-in for each read-only admin console at `/admin` (booking requests on Tymo services, website quote requests on the marketing site). Required in production along with `SESSION_SECRET`; otherwise admin sign-in is off |
 | `TYMO_INTERNAL_CRON=1` | Tymo services, single instance: run the sweep every minute in-process |
 | `PAYMENTS_MODE`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TYMO_FEE_BPS` | Payments (fake when unset) |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Email delivery (outbox only when unset) |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Email delivery (outbox only when unset). The marketing service needs both to send request emails; `EMAIL_FROM` must be on a domain verified in Resend |
+| `TYMO_QUOTE_NOTIFY_TO` | Marketing service only. Comma-separated inboxes that get one clean email per new website request, with replies going to the requester |
 | `TYMO_SEED_DEMO=1` | Tymo services, demo only: seed Redbud into an empty database |
 | `TYMO_DEMO=1` | Private demo staff service only: one-tap sign-in to fictional accounts |
 | `TYMO_PUBLIC_PREVIEW=1` | Company website only. Keep sample fields, prices and availability visible and disable checkout |
@@ -66,6 +67,22 @@ SSH access can review the most recent requests from the `tymo` service shell.
 ```bash
 npm run quotes:list -w @tymo/tymo-web -- 20
 ```
+
+Signed-in staff can also read them in a browser at `/admin` on the
+marketing site: a read-only list of the newest 200 requests (times in
+Central) with a page per request. Set `TYMO_ADMIN_USER`,
+`TYMO_ADMIN_PASSWORD` and a private random `SESSION_SECRET` on the `tymo`
+service. Production admin sign-in stays off until all three are set; the
+`admin1` / `admin1` sign-in only exists outside production. Changing the
+password or secret signs everyone out.
+
+Each new request is also emailed to the inboxes in `TYMO_QUOTE_NOTIFY_TO`
+(name, business, type, email, phone, notes, received time, and a link to
+`/admin`). Replying answers the requester directly. Sending needs
+`RESEND_API_KEY` and `EMAIL_FROM` on the `tymo` service; without them the
+request is still saved and the service logs that request emails are off.
+A retried form is never emailed twice, and a failed email never fails the
+request.
 
 Only share quote records with authorized staff. Keep personal information
 out of issues, logs, fixtures and public analytics. Review and reply from

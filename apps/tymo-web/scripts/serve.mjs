@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile, realpath } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createAdminHandler } from "./admin-http.mjs";
 import { createQuoteHandler, renderQuotePage } from "./quote-http.mjs";
 import { openQuoteStore } from "./quote-store.mjs";
 
@@ -11,6 +12,7 @@ const host = process.argv[3] ?? "0.0.0.0";
 const databaseUrl = process.env.TYMO_LEADS_DATABASE_URL;
 const quoteStore = databaseUrl ? openQuoteStore(databaseUrl) : null;
 const handleQuote = createQuoteHandler(quoteStore, Boolean(process.env.RAILWAY_ENVIRONMENT_ID));
+const handleAdmin = createAdminHandler(quoteStore, { behindRailway: Boolean(process.env.RAILWAY_ENVIRONMENT_ID) });
 const publicPages = new Set([
   "/index.html", "/fonts.css", "/style.css", "/hero.css", "/product.css", "/lower.css",
   "/hero.js", "/product.js", "/demo.js", "/strip.js",
@@ -37,6 +39,10 @@ const server = createServer({ requestTimeout: 20_000, headersTimeout: 10_000, co
   }
   if (pathname === "/api/quote" || pathname === "/api/health") {
     await handleQuote(req, res, pathname);
+    return;
+  }
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    await handleAdmin(req, res, pathname);
     return;
   }
   if (req.method !== "GET" && req.method !== "HEAD") {
