@@ -74,8 +74,9 @@ async function readForm(request, message) {
 }
 
 /**
- * Read-only admin pages for website quote requests, under /admin.
- * store: the quote store (or null when TYMO_LEADS_DATABASE_URL is unset).
+ * Read-only admin pages for website requests (demo requests and quote
+ * requests), under /admin.
+ * store: the request store (or null when TYMO_LEADS_DATABASE_URL is unset).
  * It needs list(limit); get(id), when present, finds requests older than the newest 200.
  */
 export function createAdminHandler(store, {
@@ -209,13 +210,16 @@ export function createAdminHandler(store, {
       // One extra row tells us whether there are more than we show.
       rows = await store.list(listLimit + 1);
     } catch {
-      console.warn("[admin] Could not load quote requests.");
+      console.warn("[admin] Could not load website requests.");
       send(request, response, 503, renderListPage({ user, problem: "error" }));
       return;
     }
     const shown = rows.slice(0, listLimit);
+    const query = new URL(request.url ?? "/admin", "http://admin.invalid").searchParams;
+    // ?type=demo or ?type=quote lists one type of request; anything else lists them all.
+    const type = ["demo", "quote"].includes(query.get("type")) ? query.get("type") : null;
     // ?request=<id> picks the request shown beside the list; the newest one is the default.
-    const wanted = new URL(request.url ?? "/admin", "http://admin.invalid").searchParams.get("request")?.trim().toLowerCase();
+    const wanted = query.get("request")?.trim().toLowerCase();
     let selected = null;
     if (wanted && uuidPattern.test(wanted)) {
       selected = shown.find((row) => String(row.id).toLowerCase() === wanted) ?? null;
@@ -223,7 +227,7 @@ export function createAdminHandler(store, {
         try {
           selected = await findRequest(wanted);
         } catch {
-          console.warn("[admin] Could not load a quote request.");
+          console.warn("[admin] Could not load a website request.");
         }
       }
     }
@@ -233,6 +237,7 @@ export function createAdminHandler(store, {
       truncated: rows.length > listLimit,
       selected,
       missing: Boolean(wanted) && !selected,
+      type,
     }));
   }
 
@@ -256,7 +261,7 @@ export function createAdminHandler(store, {
     try {
       row = await findRequest(match[1].toLowerCase());
     } catch {
-      console.warn("[admin] Could not load a quote request.");
+      console.warn("[admin] Could not load a website request.");
       send(request, response, 503, renderDetailPage({ user, problem: "error" }));
       return;
     }

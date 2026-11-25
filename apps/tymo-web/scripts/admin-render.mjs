@@ -73,10 +73,52 @@ export function notesPreview(message, limit = 120) {
   return characters.length > limit ? `${characters.slice(0, limit).join("").trimEnd()}…` : text;
 }
 
+/**
+ * "demo" for a company intake sent from "Book a demo", "quote" for the quote
+ * form. A missing or unknown kind is a quote: rows saved before kinds existed.
+ */
+export function requestType(row) {
+  return row?.kind === "company_intake" ? "demo" : "quote";
+}
+
+const typeNames = { demo: "Demo request", quote: "Quote request" };
+const typeLabel = (row) => typeNames[requestType(row)];
+const isDemo = (row) => requestType(row) === "demo";
+
+/** The intake's questions, in the order and words the form asks them. The first two are required there. */
+const intakeQuestions = [
+  { key: "offerings", label: "What can a customer book?", required: true },
+  { key: "booking_workflow", label: "How does a booking come in today?", required: true },
+  { key: "availability", label: "Hours and availability" },
+  { key: "pricing_and_policies", label: "Pricing and policies" },
+  { key: "demo_priorities", label: "What would you like to see in your demo?" },
+];
+
+const isBlank = (value) => !String(value ?? "").trim();
+
+/**
+ * Where a website typed into the intake should link, or null when it
+ * shouldn't be a link. Without a scheme it gets https:// ("example.test:8080"
+ * is a port, not a scheme). Only http and https ever link.
+ */
+export function websiteHref(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const hasScheme = /^[a-z][a-z\d+.-]*:(?!\d)/i.test(text);
+  let url;
+  try {
+    url = new URL(hasScheme ? text : `https://${text}`);
+  } catch {
+    return null;
+  }
+  return (url.protocol === "https:" || url.protocol === "http:") && url.hostname ? url.href : null;
+}
+
 const telHref = (phone) => `tel:${String(phone).split(/[x#]/i, 1)[0].replace(/[^\d+]/g, "")}`;
 const requestId = (row) => encodeURIComponent(String(row.id).toLowerCase());
 const requestHref = (row) => `/admin/requests/${requestId(row)}`;
-const selectHref = (row) => `/admin?request=${requestId(row)}`;
+/** type: the list's type filter, kept while picking requests from it. */
+const selectHref = (row, type) => `/admin?${type ? `type=${type}&` : ""}request=${requestId(row)}`;
 
 /**
  * How the request email went, for people: a status word, a tone for its
@@ -221,7 +263,19 @@ h1{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.01em;overflo
 .pick-sub{color:var(--muted)}
 .pick-email{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .pick-email .status{font-weight:500}
-.selected{position:sticky;top:16px}
+.kind{display:block;font-size:11px;line-height:16px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.kind-demo{color:var(--text)}
+.card .kind{padding-top:12px}
+.filter{margin-bottom:16px}
+.filter ul{display:flex;border:1px solid var(--line);background:var(--card)}
+.filter li{flex:1 1 auto;min-width:0}
+.filter li+li{border-left:1px solid var(--line)}
+.filter-link{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;color:var(--muted);font-weight:500;text-decoration:none;white-space:nowrap}
+.filter-link:hover{background:var(--paper);color:var(--text)}
+.filter-link[aria-current]{background:var(--ink);color:#fff}
+.selected{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto}
+.answer+.answer{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.answer-label{margin:0 0 4px;font-size:13px;line-height:18px;font-weight:600}
 .selected-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px;border-bottom:1px solid var(--line)}
 .selected-head h2{font-size:18px;line-height:24px;font-weight:600;overflow-wrap:anywhere}
 .selected-head .lede{margin-top:2px}
@@ -250,6 +304,9 @@ label{display:block;margin-bottom:4px;font-weight:500}
 .frame{padding:32px 24px}
 h1{font-size:24px;line-height:30px}
 .login{padding:80px 24px}
+.filter ul{display:inline-flex}
+.filter li{flex:none}
+.filter-link{padding:0 16px}
 }
 @media (min-width:960px){
 .cards{display:none}
@@ -325,75 +382,128 @@ export function renderLoginPage({ enabled, user = "", error = null, invalid = fa
   });
 }
 
-function contactLines(row) {
-  return html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>${
-    row.phone ? html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>` : html`<span class="muted">No phone</span>`
-  }`;
-}
+const noNotes = html`<span class="muted">No notes</span>`;
+const noAnswer = html`<span class="muted">No answer</span>`;
 
-function notesText(row) {
-  const preview = notesPreview(row.message);
-  return preview ?? html`<span class="muted">No notes</span>`;
+const kindClass = (row) => `kind kind-${requestType(row)}`;
+
+/** Demo requests have no phone, so only a quote says "No phone". */
+function contactLines(row) {
+  const phone = row.phone
+    ? html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>`
+    : isDemo(row) ? "" : html`<span class="muted">No phone</span>`;
+  return html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>${phone}`;
 }
 
 function requestCards(rows, now) {
-  return html`<ul class="cards">${rows.map((row) => html`
-<li class="card"><a class="row-link" href="${requestHref(row)}">${row.name}</a>
+  return html`<ul class="cards">${rows.map((row) => {
+    const demo = isDemo(row);
+    return html`
+<li class="card"><p class="${kindClass(row)}">${typeLabel(row)}</p><a class="row-link" href="${requestHref(row)}">${row.name}</a>
 <dl class="lines">
 <dt>Received</dt><dd>${receivedText(row.created_at, { now })}</dd>
-<dt>Business</dt><dd><span class="strong">${row.business}</span><span class="sub">${row.business_type}</span></dd>
+<dt>Business</dt><dd><span class="strong">${row.business}</span>${demo ? "" : html`<span class="sub">${row.business_type}</span>`}</dd>
 <dt class="tap-label">Contact</dt><dd class="contact">${contactLines(row)}</dd>
-<dt>Notes</dt><dd>${notesText(row)}</dd>
+${demo
+    ? html`<dt>Books</dt><dd>${notesPreview(row.offerings) ?? noAnswer}</dd>`
+    : html`<dt>Notes</dt><dd>${notesPreview(row.message) ?? noNotes}</dd>`}
 <dt>Team email</dt><dd>${statusMark(emailStatus(row))}</dd>
-</dl></li>`)}
+</dl></li>`;
+  })}
 </ul>`;
 }
 
+function detailItem(label, value, className = "") {
+  return html`<div><dt>${label}</dt><dd${raw(className ? ` class="${className}"` : "")}>${value}</dd></div>`;
+}
+
+const emailItem = (row) => detailItem("Email", html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>`, "has-tap");
+const phoneItem = (row) => detailItem("Phone", html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>`, "has-tap");
+const receivedItem = (row) => detailItem("Received", formatReceived(row.created_at, { withYear: true }));
+const idItem = (row) => detailItem("Request ID", html`<span class="mono">${row.id}</span>`);
+
+/** Shown as typed; linked only when websiteHref allows it. */
+function websiteItem(row) {
+  if (isBlank(row.website)) return detailItem("Website", "No website", "muted");
+  const href = websiteHref(row.website);
+  return href
+    ? detailItem("Website", html`<a class="tap link" href="${href}" rel="external noreferrer">${row.website}</a>`, "has-tap")
+    : detailItem("Website", row.website);
+}
+
+/** One block per question the visitor answered. Blank optional answers are left out. */
+function answerBlocks(row) {
+  return intakeQuestions
+    .filter(({ key, required }) => required || !isBlank(row[key]))
+    .map(({ key, label }) => html`<div class="answer"><h4 class="answer-label">${label}</h4>${
+      isBlank(row[key]) ? html`<p>${noAnswer}</p>` : html`<p class="notes-full">${row[key]}</p>`
+    }</div>`);
+}
+
 /**
- * Everything about one request, in reading order: notes, the team email,
- * then contact and request details. Shared by the inbox panel and the page.
+ * Everything about one request, in reading order: what they wrote (notes,
+ * or a demo request's answers), the team email, then contact and request
+ * details. Shared by the inbox panel and the page.
  */
 function requestSections(row) {
-  const item = (label, value, className = "") =>
-    html`<div><dt>${label}</dt><dd${raw(className ? ` class="${className}"` : "")}>${value}</dd></div>`;
   const status = emailStatus(row);
+  const email = html`<div class="section"><h3 class="section-label">Email to the team</h3>${statusMark(status)}<p class="email-detail">${status.detail}</p></div>`;
+  if (isDemo(row)) {
+    return html`<div class="section"><h3 class="section-label">Answers</h3>${answerBlocks(row)}</div>
+${email}
+<div class="section"><h3 class="section-label">Contact</h3><dl class="details">
+${detailItem("Name", row.name)}
+${emailItem(row)}
+${row.phone ? phoneItem(row) : ""}
+${websiteItem(row)}
+</dl></div>
+<div class="section"><h3 class="section-label">Request</h3><dl class="details">
+${detailItem("Business", row.business)}
+${detailItem("Type", typeLabel(row))}
+${receivedItem(row)}
+${idItem(row)}
+</dl></div>`;
+  }
   return html`<div class="section"><h3 class="section-label">Notes</h3>${
     row.message ? html`<p class="notes-full">${row.message}</p>` : html`<p class="muted">No notes</p>`
   }</div>
-<div class="section"><h3 class="section-label">Email to the team</h3>${statusMark(status)}<p class="email-detail">${status.detail}</p></div>
+${email}
 <div class="section"><h3 class="section-label">Contact</h3><dl class="details">
-${item("Name", row.name)}
-${item("Email", html`<a class="tap link" href="mailto:${row.email}">${row.email}</a>`, "has-tap")}
-${row.phone
-    ? item("Phone", html`<a class="tap link" href="${telHref(row.phone)}">${row.phone}</a>`, "has-tap")
-    : item("Phone", "No phone", "muted")}
+${detailItem("Name", row.name)}
+${emailItem(row)}
+${row.phone ? phoneItem(row) : detailItem("Phone", "No phone", "muted")}
 </dl></div>
 <div class="section"><h3 class="section-label">Request</h3><dl class="details">
-${item("Business", row.business)}
-${item("Business type", row.business_type)}
-${item("Received", formatReceived(row.created_at, { withYear: true }))}
-${item("Request ID", html`<span class="mono">${row.id}</span>`)}
+${detailItem("Business", row.business)}
+${detailItem("Business type", row.business_type)}
+${receivedItem(row)}
+${idItem(row)}
 </dl></div>`;
 }
 
+/** "Demo request · From Riley Sample · Tue, Nov 24, 2026 · 9:40 AM CT" */
+const fromLine = (row) => html`${typeLabel(row)} · From ${row.name} · ${formatReceived(row.created_at, { withYear: true })}`;
+
 /** Wide screens: every request is a selectable row; the selected one opens beside the list. */
-function requestInbox(rows, selected, now) {
+function requestInbox(rows, selected, now, type) {
   const selectedId = selected ? String(selected.id).toLowerCase() : null;
   return html`<div class="inbox">
 <nav class="picks" aria-label="Requests"><ul>${rows.map((row) => {
     const current = String(row.id).toLowerCase() === selectedId;
+    const demo = isDemo(row);
     return html`
-<li><a class="pick" href="${selectHref(row)}"${raw(current ? ' aria-current="true"' : "")}>
+<li><a class="pick" href="${selectHref(row, type)}"${raw(current ? ' aria-current="true"' : "")}>
+<span class="${kindClass(row)}">${typeLabel(row)}</span>
 <span class="pick-top"><span class="pick-name">${row.name}</span><span class="pick-time">${formatReceived(row.created_at, { now })}</span></span>
-<span class="pick-sub">${row.business} · ${row.business_type}</span>
-<span class="pick-notes">${notesPreview(row.message, 90) ?? html`<span class="muted">No notes</span>`}</span>
+<span class="pick-sub">${demo ? row.business : html`${row.business} · ${row.business_type}`}</span>
+<span class="pick-notes">${demo ? notesPreview(row.offerings, 90) ?? noAnswer : notesPreview(row.message, 90) ?? noNotes}</span>
 <span class="pick-email">Team email ${statusMark(emailStatus(row))}</span>
 </a></li>`;
   })}
 </ul></nav>
 ${selected
-    ? html`<section class="panel selected" aria-labelledby="selected-title">
-<div class="selected-head"><div><h2 id="selected-title">${selected.business}</h2><p class="lede">From ${selected.name} · ${formatReceived(selected.created_at, { withYear: true })}</p></div>
+    ? html`<section class="panel selected" aria-labelledby="selected-title" tabindex="0">
+<div class="selected-head"><div><h2 id="selected-title">${selected.business}</h2><p class="lede">${fromLine(selected)}</p></div>
 <a class="button" href="${requestHref(selected)}">Open as page</a></div>
 ${requestSections(selected)}
 </section>`
@@ -401,11 +511,40 @@ ${requestSections(selected)}
 </div>`;
 }
 
+const typeFilters = [
+  { type: null, label: "All", href: "/admin" },
+  { type: "demo", label: "Demo requests", href: "/admin?type=demo" },
+  { type: "quote", label: "Quote requests", href: "/admin?type=quote" },
+];
+
+function typeFilter(type) {
+  return html`<nav class="filter" aria-label="Request type"><ul>${typeFilters.map((filter) => html`<li><a class="filter-link" href="${filter.href}"${
+    raw(filter.type === type ? ' aria-current="page"' : "")
+  }>${filter.label}</a></li>`)}</ul></nav>`;
+}
+
+/** "1 request", "3 demo requests". */
+function countText(count, type) {
+  const noun = type ? typeNames[type].toLowerCase() : "request";
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
 /**
  * problem: "unconnected" when there is no database, "error" when it couldn't be read.
- * selected: the request shown beside the list (defaults to the newest); missing: the asked-for one wasn't found.
+ * selected: the request shown beside the list (defaults to the newest shown); missing: the asked-for one wasn't found.
+ * type: "demo" or "quote" lists only that type of request; null lists every request.
  */
-export function renderListPage({ user, rows = [], truncated = false, problem = null, now = new Date(), selected = null, missing = false }) {
+export function renderListPage({
+  user,
+  rows = [],
+  truncated = false,
+  problem = null,
+  now = new Date(),
+  selected = null,
+  missing = false,
+  type = null,
+}) {
+  const listType = type === "demo" || type === "quote" ? type : null;
   let content;
   if (problem === "unconnected") {
     content = notConnected;
@@ -414,24 +553,40 @@ export function renderListPage({ user, rows = [], truncated = false, problem = n
   } else if (rows.length === 0) {
     content = emptyBlock({
       title: "No requests yet",
-      body: "Requests sent from the Tymo website's quote form show up here.",
+      body: "Demo requests and quote requests sent from the Tymo website show up here.",
     });
   } else {
-    const count = truncated
-      ? html`<div class="note" role="status">Showing the newest ${rows.length}.</div>`
-      : html`<p class="count">${rows.length} ${rows.length === 1 ? "request" : "requests"}</p>`;
+    const shown = listType ? rows.filter((row) => requestType(row) === listType) : rows;
+    const plural = listType ? `${typeNames[listType].toLowerCase()}s` : "requests";
     const notFound = missing
       ? html`<div class="note" role="status">That request wasn't found, so the newest one is open.</div>`
       : "";
-    content = html`${notFound}${count}${requestCards(rows, now)}${requestInbox(rows, selected ?? rows[0], now)}`;
+    if (shown.length === 0) {
+      content = html`${typeFilter(listType)}${emptyBlock({
+        title: `No ${plural}`,
+        body: truncated
+          ? `None of the newest ${rows.length} requests are ${plural}.`
+          : `${typeNames[listType]}s sent from the Tymo website show up here.`,
+      })}`;
+    } else {
+      let count = html`<p class="count">${countText(shown.length, listType)}</p>`;
+      if (truncated) {
+        const showing = listType ? `Showing ${plural} from the newest ${rows.length}.` : `Showing the newest ${rows.length}.`;
+        count = html`<div class="note" role="status">${showing}</div>`;
+      }
+      content = html`${typeFilter(listType)}${notFound}${count}${requestCards(shown, now)}${
+        requestInbox(shown, selected ?? shown[0], now, listType)
+      }`;
+    }
   }
 
   return page({
-    title: "Website requests",
+    title: listType ? `${typeNames[listType]}s` : "Website requests",
     user,
-    current: "page",
+    // The filter links mark the exact list; the nav link marks the section.
+    current: listType ? "true" : "page",
     body: html`<div class="frame">
-<header class="page-head"><h1>Website requests</h1><p class="lede">Sent from the quote form on the Tymo website. Times are Central (CT).</p></header>
+<header class="page-head"><h1>Website requests</h1><p class="lede">Sent from the Tymo website: demo requests and quote requests. Times are Central (CT).</p></header>
 ${content}
 </div>`,
   });
@@ -453,10 +608,10 @@ export function renderDetailPage({ user, row = null, problem = null }) {
   }
 
   return page({
-    title: "Request",
+    title: typeLabel(row),
     user,
     body: html`<div class="frame">
-<header class="page-head">${backLink}<h1>${row.business}</h1><p class="lede">From ${row.name} · ${formatReceived(row.created_at, { withYear: true })}</p></header>
+<header class="page-head">${backLink}<h1>${row.business}</h1><p class="lede">${fromLine(row)}</p></header>
 <section class="panel" aria-label="Request">
 ${requestSections(row)}
 </section>
