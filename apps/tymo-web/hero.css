@@ -78,16 +78,10 @@
 .campaign-primary { background: var(--campaign-accent); color: #121911; text-decoration: none; border-radius: .35rem; padding: .8rem 1.35rem; }
 .campaign-primary:hover { background: #e4ff8f; }
 .campaign-secondary { color: #fff; text-decoration: underline; text-underline-offset: .32em; text-decoration-color: #b1bca3; }
-.campaign-toggle {
-  position: absolute; right: 0; bottom: 1.3rem; z-index: 2;
-  width: 2.75rem; height: 2.75rem; display: grid; place-items: center;
-  border-radius: 50%; border: 1px solid #ffffff80; color: #fff;
-  background: #10151099; cursor: pointer;
-}
-.campaign-toggle:hover { background: #101510; }
-.campaign-toggle[hidden] { display: none; }
-.campaign-glyph { width: .65rem; height: .82rem; border-inline: 3px solid currentColor; }
-.campaign-toggle[data-paused] .campaign-glyph { width: 0; height: 0; margin-left: .12rem; border: 0; border-block: .42rem solid transparent; border-left: .68rem solid currentColor; }
+
+
+
+
 .campaign :focus-visible { outline: 3px solid white; outline-offset: 4px; }
 @media (max-width: 700px) {
   .campaign-photo { object-position: 65% 42%; }
@@ -97,10 +91,10 @@
   .campaign-intro { max-width: 34ch; }
   .campaign-kicker { font-size: .81rem; }
   .campaign-actions { gap: 1rem; }
-  .campaign-toggle { bottom: .7rem; }
+
 }
 @media (prefers-reduced-motion: no-preference) {
-  .campaign-primary, .campaign-toggle { transition: background-color 150ms ease; }
+  .campaign-primary { transition: background-color 150ms ease; }
 }
 .campaign-gallery { position:absolute; inset:0; z-index:-2; }
 .campaign-gallery .campaign-photo { z-index:auto; opacity:0; }
