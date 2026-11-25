@@ -39,6 +39,7 @@ npm run dev
 | Renter booking | http://localhost:3000/book/redbud |
 | Company services | http://localhost:3001/staff |
 | Tymo services | http://localhost:3002 (sign-in emails at http://localhost:3002/dev/outbox) |
+| Admin console | http://localhost:3002/admin (development sign-in admin1 / admin1) |
 | Tymo website | http://localhost:3003 |
 
 `npm run dev` also starts the dev database on port 5433 and seeds the demo

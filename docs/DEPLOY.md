@@ -38,8 +38,10 @@ in Railway variables. `.env.example` lists their names for local development.
 | `TYMO_SERVICES_URL` | Core platform base URL, currently `http://tymo-services.railway.internal:8080` |
 | `TYMO_WEB_URL` | Public URL of the Tymo website |
 | `NEXT_PUBLIC_TYMO_WEB_URL` | Company website only, at build time: "Bookings by Tymo" footer link |
-| `SESSION_SECRET` | Company website only. Generate a private random value for signing checkout state |
+| `SESSION_SECRET` | Company website and Tymo services. Generate a private random value for signing checkout state and the admin console cookie |
 | `CRON_SECRET` | Tymo services only. Generate a private random value to protect `/api/cron/tick` |
+| `TYMO_REQUEST_COPY_TO` | Company website. Comma-separated inboxes that get a copy of every new booking request, with a link to the admin console (`TYMO_SERVICES_URL` must be its public URL). Delivery needs `RESEND_API_KEY` |
+| `TYMO_ADMIN_USER`, `TYMO_ADMIN_PASSWORD` | Tymo services only. Sign-in for the read-only admin console at `/admin`. Required in production along with `SESSION_SECRET`; otherwise admin sign-in is off |
 | `TYMO_INTERNAL_CRON=1` | Tymo services, single instance: run the sweep every minute in-process |
 | `PAYMENTS_MODE`, `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `TYMO_FEE_BPS` | Payments (fake when unset) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Email delivery (outbox only when unset) |

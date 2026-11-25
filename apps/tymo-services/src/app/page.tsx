@@ -8,6 +8,7 @@ const ENDPOINTS = [
   { path: "/api/health", what: "Database readiness", method: "GET" },
   { path: "/api/stripe/webhook", what: "Stripe webhooks (account.updated)", method: "POST" },
   { path: "/api/cron/tick", what: "Sweep: holds, expiry, reminders, completion", method: "POST, Bearer CRON_SECRET" },
+  { path: "/admin", what: "Admin console: requests across every facility", method: "GET" },
   { path: "/dev/outbox", what: "Every email the platform sent (development only)", method: "GET" },
 ];
 

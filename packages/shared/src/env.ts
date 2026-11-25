@@ -1,6 +1,7 @@
 import "server-only";
 
 const trim = (url: string) => url.replace(/\/+$/, "");
+const isProduction = process.env.NODE_ENV === "production";
 
 /** Server-side configuration. Read once; every value has a dev-safe default. */
 export const env = {
@@ -26,4 +27,22 @@ export const env = {
   isProd: process.env.NODE_ENV === "production",
   /** Public demo deployment: shows one-tap sign-in for the seeded demo staff. Never set for a real facility. */
   demoMode: process.env.TYMO_DEMO === "1",
+  /**
+   * Tymo admin console (tymo services /admin) username. The admin1 default
+   * is for development only (this repo is public); production needs
+   * TYMO_ADMIN_USER or admin sign-in stays off.
+   */
+  adminUser: process.env.TYMO_ADMIN_USER || (isProduction ? "" : "admin1"),
+  /** Admin console password; development default admin1, production needs TYMO_ADMIN_PASSWORD. */
+  adminPassword: process.env.TYMO_ADMIN_PASSWORD || (isProduction ? "" : "admin1"),
+  /** True when SESSION_SECRET is set (the fallback above is public, so production admin sign-in requires it). */
+  sessionSecretSet: !!process.env.SESSION_SECRET,
+  /**
+   * Inboxes that get a copy of every new booking request (TYMO_REQUEST_COPY_TO,
+   * comma-separated). Set per deploy; never put real addresses in this public repo.
+   */
+  requestCopyTo: (process.env.TYMO_REQUEST_COPY_TO || "")
+    .split(",")
+    .map((addr) => addr.trim().toLowerCase())
+    .filter((addr) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)),
 } as const;
