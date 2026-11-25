@@ -405,6 +405,44 @@ export function renderStaffNewRequest(ctx: BookingEmailContext): RenderedEmail {
   });
 }
 
+/**
+ * Copy of a new request for an inbox outside the facility team
+ * (TYMO_REQUEST_COPY_TO): every detail in one table, readable without a
+ * staff sign-in, with an optional link to the admin console.
+ */
+export function renderRequestCopy(ctx: BookingEmailContext, adminUrl: string | null): RenderedEmail {
+  const { facility: f, booking: b } = ctx;
+  const x = facts(ctx);
+  const rows: [string, string][] = [
+    ["Facility", f.name],
+    ["Field", x.resourceLabel],
+    ["When", `${x.date}, ${x.time}`],
+    ["Customer", b.customerName],
+    ["Phone", formatPhone(b.customerPhone)],
+    ["Email", b.customerEmail],
+  ];
+  if (b.team) rows.push(["Team", b.team]);
+  rows.push(
+    ["Amount", `${formatCents(b.priceCents)}, card held, not charged`],
+    ["Card", x.card],
+    ["Waiver", b.waiverAccepted ? "Waiver accepted" : "Waiver not accepted"],
+  );
+  if (x.deadlineStaff) rows.push(["Approve by", x.deadlineStaff]);
+  const blocks: Block[] = [
+    { kind: "p", text: `${b.customerName} requested ${x.resourceLabel} at ${f.name}.` },
+    { kind: "details", rows },
+    { kind: "note", text: `The ${f.name} team got this request too. They approve or decline it in the staff app.` },
+  ];
+  if (adminUrl) blocks.push({ kind: "button", label: "Open in admin console", url: adminUrl });
+  return build(f, {
+    subject: `New request at ${f.name}: ${b.resourceCode}, ${x.dateShort}, ${x.timeStaff}`,
+    preheader: `${b.customerName} · ${formatCents(b.priceCents)} · ${x.date}, ${x.time}`,
+    heading: "New booking request",
+    blocks,
+    footer: [`You're getting a copy of every new request at ${f.name}.`, "Sent by Tymo."],
+  });
+}
+
 export function renderStaffReminder(ctx: BookingEmailContext, hoursLeft: 24 | 2): RenderedEmail {
   const { facility: f, booking: b } = ctx;
   const x = facts(ctx);

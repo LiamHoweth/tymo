@@ -12,6 +12,7 @@ import {
   renderDeclined,
   renderExpired,
   renderPaymentFailed,
+  renderRequestCopy,
   renderRequestReceived,
   renderStaffCustomerCancelled,
   renderStaffInvite,
@@ -158,7 +159,15 @@ async function prepare(tx: Tx, tenantId: string, event: NotifyEvent): Promise<Pr
   }
   if (to.length === 0) console.warn(`[email] ${event.kind}: no recipients for booking ${event.bookingId}`);
   const unique = [...new Set(to.map((addr) => addr.trim().toLowerCase()).filter(Boolean))];
-  return { ...base, messages: unique.map((addr) => ({ to: addr, bookingId: event.bookingId, email })) };
+  const messages: Message[] = unique.map((addr) => ({ to: addr, bookingId: event.bookingId, email }));
+  // Every new request is also copied to the inboxes in TYMO_REQUEST_COPY_TO.
+  if (event.kind === "staff_new_request" && env.requestCopyTo.length > 0) {
+    const copy = renderRequestCopy(ctx, `${env.tymoServicesUrl}/admin/bookings/${event.bookingId}`);
+    for (const addr of env.requestCopyTo) {
+      if (!unique.includes(addr)) messages.push({ to: addr, bookingId: event.bookingId, email: copy });
+    }
+  }
+  return { ...base, messages };
 }
 
 async function loadBookingContext(tx: Tx, tenantId: string, bookingId: string, facility: EmailFacility): Promise<BookingEmailContext> {

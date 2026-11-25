@@ -8,6 +8,7 @@ import {
   renderDeclined,
   renderExpired,
   renderPaymentFailed,
+  renderRequestCopy,
   renderRequestReceived,
   renderStaffCustomerCancelled,
   renderStaffInvite,
@@ -111,6 +112,7 @@ describe("every template", () => {
     ["cancelled_by_facility", renderCancelledByFacility(ctx({ status: "cancelled_by_facility" }))],
     ["customer_link", renderCustomerLink(ctx())],
     ["staff_new_request", renderStaffNewRequest(halfCtx())],
+    ["request_copy", renderRequestCopy(halfCtx(), `${APP}/admin/bookings/b-1`)],
     ["staff_reminder", renderStaffReminder(halfCtx(), 24)],
     ["staff_request_expired", renderStaffRequestExpired(halfCtx())],
     ["staff_customer_cancelled", renderStaffCustomerCancelled(halfCtx())],
@@ -253,6 +255,29 @@ describe("customer emails", () => {
     expect(email.html).not.toContain("<script>");
     expect(email.html).toContain("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;");
     expect(email.html).toContain("A &amp; B");
+  });
+});
+
+describe("request copy", () => {
+  it("puts every detail in one table and links to the admin console", () => {
+    const email = renderRequestCopy(halfCtx(), `${APP}/admin/bookings/b-1`);
+    expect(email.subject).toBe("New request at Redbud Soccer Complex: N1A, Sat Dec 5, 10:00 to 11:30 AM");
+    expect(email.text).toContain("Facility: Redbud Soccer Complex");
+    expect(email.text).toContain("Field: N1A (N1 · Half A)");
+    expect(email.text).toContain("When: Sat, Dec 5, 10:00–11:30 AM CT");
+    expect(email.text).toContain("Customer: Jordan Sample");
+    expect(email.text).toContain("Phone: (580) 555-0142");
+    expect(email.text).toContain("Email: jamie@example.com");
+    expect(email.text).toContain("Amount: $45.00, card held, not charged");
+    expect(email.text).toContain("Approve by: Tue Nov 24, 8:00 PM CT");
+    expect(email.actionUrl).toBe(`${APP}/admin/bookings/b-1`);
+  });
+
+  it("works without an admin link", () => {
+    const email = renderRequestCopy(halfCtx(), null);
+    expect(email.actionUrl).toBeNull();
+    expect(email.html).not.toMatch(/border-radius:999px;background:/);
+    expect(email.text).toContain("Customer: Jordan Sample");
   });
 });
 
